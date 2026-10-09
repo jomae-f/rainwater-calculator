@@ -278,6 +278,98 @@ def calculate_manning(
 
 
 # ----------------------------------------------------
+# 共通水理計算関数
+# ----------------------------------------------------
+def calculate_manning(
+    shape_type, slope_val, slope_type, roughness_n, ratio,
+    w_mm=None, h_mm=None, w_bottom_mm=None, r_bottom_mm=None,
+    d_mm=None, b1_mm=None, b2_mm=None
+):
+    if "‰" in slope_type or "パーミル" in slope_type:
+        S = slope_val / 1000.0
+    elif "%" in slope_type or "パーセント" in slope_type:
+        S = slope_val / 100.0
+    else:
+        S = 1.0 / slope_val if slope_val > 0 else 0.0
+
+    A_max, P_max, h_design_mm = 0.0, 0.0, 0.0
+
+    if shape_type == "U形":
+        B1, H = w_mm / 1000.0, h_mm / 1000.0
+        h_design = H * ratio
+        h_design_mm = h_design * 1000.0
+        
+        B2 = (w_bottom_mm / 1000.0) if w_bottom_mm is not None else B1
+        R = (r_bottom_mm / 1000.0) if r_bottom_mm is not None else 0.0
+        
+        slope_len = math.sqrt(((B1 - B2) / 2.0)**2 + H**2)
+        bh = B2 + (B1 - B2) * (h_design / H)
+        
+        dx = (B1 - B2) / 2.0
+        alpha = math.atan2(H, dx) if dx > 0 else (math.pi / 2.0)
+        
+        A_base = (B2 + bh) * h_design / 2.0
+        P_base = B2 + 2.0 * h_design * (slope_len / H)
+
+        if R > 0.0:
+            tan_half = math.tan(alpha / 2.0)
+            d_pt = R / tan_half if tan_half > 0 else 0.0
+            y_pt = d_pt * math.sin(alpha)
+
+            if h_design >= y_pt:
+                A_loss = 2.0 * (R * d_pt - (alpha * (R ** 2) / 2.0))
+                A_max = max(0.0, A_base - A_loss)
+                
+                P_loss = 2.0 * (d_pt + R) - (alpha * R * 2.0)
+                P_max = max(0.0, P_base - P_loss)
+            else:
+                ratio_h = h_design / y_pt if y_pt > 0 else 0.0
+                A_loss = 2.0 * (R * d_pt - (alpha * (R ** 2) / 2.0)) * (ratio_h ** 2)
+                A_max = max(0.0, A_base - A_loss)
+                P_max = B2 + 2.0 * h_design
+        else:
+            A_max = A_base
+            P_max = P_base
+
+    elif shape_type == "円形":
+        D = d_mm / 1000.0
+        r = D / 2.0
+        h_design = D * ratio
+        h_design_mm = h_design * 1000.0
+        
+        cos_val = max(-1.0, min(1.0, (r - h_design) / r))
+        theta = 2.0 * math.acos(cos_val)
+        
+        if h_design <= r:
+            A_max = (r ** 2) * (theta - math.sin(theta)) / 2.0
+        else:
+            A_max = (math.pi * (r ** 2)) - ((r ** 2) * ((2.0 * math.pi - theta) - math.sin(2.0 * math.pi - theta)) / 2.0)
+            
+        P_max = r * theta
+
+    elif shape_type == "台形":
+        B1, B2, H = b1_mm / 1000.0, b2_mm / 1000.0, h_mm / 1000.0
+        h_design = H * ratio
+        h_design_mm = h_design * 1000.0
+        
+        bh = B2 + (B1 - B2) * (h_design / H)
+        slope_len = math.sqrt(((B1 - B2) / 2.0)**2 + H**2)
+        
+        A_max = (B2 + bh) * h_design / 2.0
+        P_max = B2 + 2.0 * h_design * (slope_len / H)
+
+    R_max = A_max / P_max if P_max > 0.0 else 0.0
+
+    if P_max > 0.0 and S > 0.0:
+        V_max = (1.0 / roughness_n) * (R_max ** (2.0 / 3.0)) * (S ** (1.0 / 2.0))
+        Q_max = A_max * V_max
+    else:
+        V_max, Q_max = 0.0, 0.0
+
+    return Q_max, V_max, h_design_mm, A_max, P_max, R_max
+
+
+# ----------------------------------------------------
 # 断面描画関数
 # ----------------------------------------------------
 def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None, d_mm=None, b1_mm=None, b2_mm=None, r_bottom_mm=None):
@@ -328,49 +420,79 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
         scale = 1.05 / max_dim if max_dim > 0 else 1.0
 
         b1_s, b2_s, h_s, hw_s = B1 * scale, B2 * scale, H * scale, h_w * scale
-        r_s = max(0.0, min(R * scale, b2_s / 2.0, h_s / 2.0))
+
+        dx = (b1_s - b2_s) / 2.0
+        alpha = math.atan2(h_s, dx) if dx > 0 else (math.pi / 2.0)
+
+        r_s = R * scale
+        tan_half = math.tan((math.pi - alpha) / 2.0)
+        d_in = r_s * tan_half
+
+        if d_in > b2_s / 2.0 and b2_s > 0:
+            d_in = b2_s / 2.0
+            r_s = d_in / tan_half if tan_half > 0 else 0.0
 
         if r_s > 0:
-            t_left = np.linspace(np.pi, 1.5 * np.pi, 15)
-            x_arc_left = (-b2_s/2 + r_s) + r_s * np.cos(t_left)
-            y_arc_left = r_s + r_s * np.sin(t_left)
+            xc_r = (b2_s / 2.0) - d_in
+            yc_r = r_s
 
-            t_right = np.linspace(1.5 * np.pi, 2.0 * np.pi, 15)
-            x_arc_right = (b2_s/2 - r_s) + r_s * np.cos(t_right)
-            y_arc_right = r_s + r_s * np.sin(t_right)
+            p_wall_r = (xc_r + r_s * math.sin(alpha), yc_r - r_s * math.cos(alpha))
 
-            x_wall = np.concatenate([[-b1_s/2], x_arc_left, x_arc_right, [b1_s/2]])
-            y_wall = np.concatenate([[h_s], y_arc_left, y_arc_right, [h_s]])
+            angles_r = np.linspace(-math.pi / 2.0, alpha - math.pi / 2.0, 15)
+            arc_x_r = xc_r + r_s * np.cos(angles_r)
+            arc_y_r = yc_r + r_s * np.sin(angles_r)
+
+            arc_x_l = -arc_x_r[::-1]
+            arc_y_l = arc_y_r[::-1]
+
+            x_wall = np.concatenate([[-b1_s / 2.0, -p_wall_r[0]], arc_x_l, arc_x_r, [p_wall_r[0], b1_s / 2.0]])
+            y_wall = np.concatenate([[h_s, p_wall_r[1]], arc_y_l, arc_y_r, [p_wall_r[1], h_s]])
         else:
-            x_wall = [-b1_s/2, -b2_s/2, b2_s/2, b1_s/2]
-            y_wall = [h_s, 0, 0, h_s]
+            x_wall = np.array([-b1_s / 2.0, -b2_s / 2.0, b2_s / 2.0, b1_s / 2.0])
+            y_wall = np.array([h_s, 0.0, 0.0, h_s])
 
         if hw_s > 0:
             bw_s = b2_s + (b1_s - b2_s) * (hw_s / h_s) if h_s > 0 else b2_s
 
             if r_s > 0:
-                if hw_s <= r_s:
-                    cos_val = max(-1.0, min(1.0, (r_s - hw_s) / r_s))
-                    theta = math.acos(cos_val)
-                    t_l = np.linspace(1.5 * np.pi - theta, 1.5 * np.pi, 15)
-                    t_r = np.linspace(1.5 * np.pi, 1.5 * np.pi + theta, 15)
-                    
-                    x_w_l = (-b2_s/2 + r_s) + r_s * np.cos(t_l)
-                    y_w_l = r_s + r_s * np.sin(t_l)
-                    x_w_r = (b2_s/2 - r_s) + r_s * np.cos(t_r)
-                    y_w_r = r_s + r_s * np.sin(t_r)
+                y_pt_wall = yc_r - r_s * math.cos(alpha)
 
-                    x_water = np.concatenate([x_w_l, x_w_r])
-                    y_water = np.concatenate([y_w_l, y_w_r])
-                    xw_surface = (b2_s/2 - r_s) + r_s * math.sin(theta)
+                if hw_s <= r_s:
+                    cos_v = max(-1.0, min(1.0, (r_s - hw_s) / r_s))
+                    theta = math.acos(cos_v)
+                    t_r = np.linspace(-math.pi / 2.0, -math.pi / 2.0 + theta, 15)
+                    
+                    x_w_r = xc_r + r_s * np.cos(t_r)
+                    y_w_r = yc_r + r_s * np.sin(t_r)
+                    x_w_l = -x_w_r[::-1]
+                    y_w_l = y_w_r[::-1]
+
+                    x_water = np.concatenate([[-x_w_r[-1]], x_w_l, x_w_r, [x_w_r[-1]]])
+                    y_water = np.concatenate([[hw_s], y_w_l, y_w_r, [hw_s]])
+                    xw_surface = x_w_r[-1]
+
+                elif hw_s < y_pt_wall:
+                    sin_v = max(-1.0, min(1.0, (hw_s - r_s) / r_s))
+                    phi = math.asin(sin_v)
+                    
+                    t_r = np.linspace(-math.pi / 2.0, phi, 15)
+                    x_w_r = xc_r + r_s * np.cos(t_r)
+                    y_w_r = yc_r + r_s * np.sin(t_r)
+                    x_w_l = -x_w_r[::-1]
+                    y_w_l = y_w_r[::-1]
+
+                    x_water = np.concatenate([[-x_w_r[-1]], x_w_l, x_w_r, [x_w_r[-1]]])
+                    y_water = np.concatenate([[hw_s], y_w_l, y_w_r, [hw_s]])
+                    xw_surface = x_w_r[-1]
+
                 else:
-                    x_water = np.concatenate([[-bw_s/2], x_arc_left, x_arc_right, [bw_s/2]])
-                    y_water = np.concatenate([[hw_s], y_arc_left, y_arc_right, [hw_s]])
-                    xw_surface = bw_s / 2
+                    x_water = np.concatenate([[-bw_s / 2.0], arc_x_l, arc_x_r, [bw_s / 2.0]])
+                    y_water = np.concatenate([[hw_s], arc_y_l, arc_y_r, [hw_s]])
+                    xw_surface = bw_s / 2.0
             else:
-                x_water = [-bw_s/2, -b2_s/2, b2_s/2, bw_s/2]
-                y_water = [hw_s, 0, 0, hw_s]
-                xw_surface = bw_s / 2
+                x_water = np.array([-bw_s / 2.0, -b2_s / 2.0, b2_s / 2.0, bw_s / 2.0])
+                y_water = np.array([hw_s, 0.0, 0.0, hw_s])
+                xw_surface = bw_s / 2.0
 
             ax.fill(x_water, y_water, color=water_color, alpha=0.6, zorder=2)
             ax.plot([-xw_surface, xw_surface], [hw_s, hw_s], color=water_line_color, lw=1.8, zorder=4)
@@ -380,26 +502,30 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
 
         dim_off_y, dim_off_x = 0.12, 0.12
         label_b1 = f"B1={B1:.0f}" if B1 != B2 else f"B={B1:.0f}"
-        add_dim_line((-b1_s/2, h_s + dim_off_y), (b1_s/2, h_s + dim_off_y), label_b1, is_horizontal=True)
+        add_dim_line((-b1_s / 2.0, h_s + dim_off_y), (b1_s / 2.0, h_s + dim_off_y), label_b1, is_horizontal=True)
 
         if B1 != B2:
-            add_dim_line((-b2_s/2, -dim_off_y), (b2_s/2, -dim_off_y), f"B2={B2:.0f}", is_horizontal=True, text_pos='below')
+            add_dim_line((-b2_s / 2.0, -dim_off_y), (b2_s / 2.0, -dim_off_y), f"B2={B2:.0f}", is_horizontal=True, text_pos='below')
 
-        add_dim_line((b1_s/2 + dim_off_x, 0), (b1_s/2 + dim_off_x, h_s), f"H={H:.0f}", is_horizontal=False)
+        add_dim_line((b1_s / 2.0 + dim_off_x, 0), (b1_s / 2.0 + dim_off_x, h_s), f"H={H:.0f}", is_horizontal=False)
 
         if hw_s > 0:
-            add_dim_line((-b1_s/2 - dim_off_x, 0), (-b1_s/2 - dim_off_x, hw_s), f"h={h_w:.0f}", is_horizontal=False)
+            add_dim_line((-b1_s / 2.0 - dim_off_x, 0), (-b1_s / 2.0 - dim_off_x, hw_s), f"h={h_w:.0f}", is_horizontal=False)
 
         if R > 0 and r_s > 0:
-            center_x = -b2_s/2 + r_s
-            center_y = r_s
-            arc_x = center_x - r_s * math.cos(math.pi / 4)
-            arc_y = center_y - r_s * math.sin(math.pi / 4)
+            xc_l = -((b2_s / 2.0) - d_in)
+            yc_l = r_s
+
+            arc_x_l = xc_l - r_s * math.cos(math.pi / 4.0)
+            arc_y_l = yc_l - r_s * math.sin(math.pi / 4.0)
+
+            text_x = arc_x_l + 0.05 + r_s * 0.3
+            text_y = arc_y_l + 0.08 + r_s * 0.3
 
             ax.annotate(
                 f"R={R:.0f}",
-                xy=(arc_x, arc_y),
-                xytext=(center_x + 0.05, center_y + 0.05),
+                xy=(arc_x_l, arc_y_l),
+                xytext=(text_x, text_y),
                 arrowprops=dict(arrowstyle='->', lw=1.0, color=dim_color),
                 fontsize=11, color=dim_color, fontweight='bold', ha='left', va='bottom'
             )
@@ -459,11 +585,10 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
         add_dim_line((-b2_s/2, -dim_off_y), (b2_s/2, -dim_off_y), f"B2={B2:.0f}", is_horizontal=True, text_pos='below')
         add_dim_line((b1_s/2 + dim_off_x, 0), (b1_s/2 + dim_off_x, h_s), f"H={H:.0f}", is_horizontal=False)
         if hw_s > 0:
-            add_dim_line((-b1_s/2 - dim_off_x, 0), (-b1_s/2 - dim_off_x, hw_s), f"h={h_w:.0f}", is_horizontal=False)
+            add_dim_line((-b1_s / 2.0 - dim_off_x, 0), (-b1_s / 2.0 - dim_off_x, hw_s), f"h={h_w:.0f}", is_horizontal=False)
 
     plt.tight_layout()
     return fig
-
 # ----------------------------------------------------
 # メイン画面：タブ切り替え
 # ----------------------------------------------------
@@ -508,9 +633,9 @@ with tabA:
             if show_detail:
                 col_opt_l, col_opt_r = st.columns(2, gap="medium")
                 with col_opt_l:
-                    w_bottom_a = st.number_input("下幅 B2 (mm) ", min_value=50, max_value=5000, value=290, step=10, key="w_bottom_a")
+                    w_bottom_a = st.number_input("下幅 B2 (mm) ", min_value=50, max_value=5000, value=260, step=10, key="w_bottom_a")
                 with col_opt_r:
-                    r_bottom_a = st.number_input("底面角 R (mm) ", min_value=0, max_value=500, value=30, step=5, key="r_bottom_a")
+                    r_bottom_a = st.number_input("底面角 R (mm) ", min_value=0, max_value=500, value=50, step=5, key="r_bottom_a")
             else:
                 w_bottom_a, r_bottom_a = None, None
                 
