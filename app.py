@@ -281,6 +281,8 @@ def calculate_manning(
 # 断面描画関数
 # ----------------------------------------------------
 def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None, d_mm=None, b1_mm=None, b2_mm=None, r_bottom_mm=None):
+    plt.close('all')
+
     fig, ax = plt.subplots(figsize=(5, 5))
     ax.set_aspect('equal', adjustable='box')
     ax.axis('off')
@@ -739,6 +741,7 @@ with tabA:
                 elif channel_type == "台形":
                     fig_a = draw_section("台形", h_design_a_mm, b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a)
                 st.pyplot(fig_a, use_container_width=False)
+                plt.close(fig_a)
 
         with st.container(key="checkbox_zone"):
             st.markdown("""
