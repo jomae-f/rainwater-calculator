@@ -7,12 +7,41 @@
 # ----------------------------------------------------
 import math
 import platform
+import base64
+from io import BytesIO
+from threading import RLock
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
+import streamlit.components.v1 as components
+
+# Matplotlib の描画状態を共有する処理を同時実行しない
+_PLOT_LOCK = RLock()
+
+
+def display_figure_inline(fig, height=520, width=520):
+    """Matplotlibの図をPNGに変換し、通常の画像URLを使わず指定サイズで表示する。"""
+    buffer = BytesIO()
+    fig.savefig(
+        buffer,
+        format="png",
+        dpi=150,
+        bbox_inches="tight",
+        facecolor="white",
+    )
+    png_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
+    html = f"""
+    <div style="width:{width}px; margin:0; padding:0; display:flex; justify-content:center; align-items:flex-start;">
+      <img src="data:image/png;base64,{png_b64}" alt="図表"
+           style="display:block; width:100%; max-width:none; max-height:{height - 12}px; height:auto; object-fit:contain;" />
+    </div>
+    """
+    # iframe側にも幅を指定しないと、親カラムの幅に画像が縮小されるため固定幅にする。
+    components.html(html, width=width, height=height, scrolling=False)
+
 
 # ページ基本設定
 st.set_page_config(page_title="雨水排水設計ツール", layout="wide")
@@ -404,7 +433,7 @@ def calculate_detention_basin(
 # ----------------------------------------------------
 def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None, d_mm=None, b1_mm=None, b2_mm=None, r_bottom_mm=None):
     # 1. 共通プロット設定・ヘルパー関数定義
-    plt.close('all')
+    # 他のセッションの図を閉じないよう、ここでは plt.close('all') を呼ばない
 
     fig, ax = plt.subplots(figsize=(5, 5))
     ax.set_aspect('equal', adjustable='box')
@@ -690,7 +719,7 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
     rgba[:, :, 2] = 0.996  # B
     alpha = 0.5 + 0.4 * np.sin(np.linspace(0, np.pi, nx))
     rgba[:, :, 3] = alpha
-    # ax.imshow(rgba, extent=[0.5, 9.5, 0.2, 1.0], aspect='auto', origin='lower', zorder=1)
+    ax.imshow(rgba, extent=[0.5, 9.5, 0.2, 1.0], aspect='auto', origin='lower', zorder=1)
 
     # 開発区域外背景（存在する場合のみ描画）
     if has_ext:
@@ -1096,14 +1125,21 @@ with tabA:
                     st.metric(label="径深 R", value=f"{R_design_a:.4f} m")
 
             with col_res_right:
-                if channel_type == "U形":
-                    fig_a = draw_section("U形", h_design_a_mm, w_mm=w_a, h_mm=h_a, w_bottom_mm=w_bottom_a, r_bottom_mm=r_bottom_a)
-                elif channel_type == "円形":
-                    fig_a = draw_section("円形", h_design_a_mm, d_mm=d_a)
-                elif channel_type == "台形":
-                    fig_a = draw_section("台形", h_design_a_mm, b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a)
-                st.pyplot(fig_a, use_container_width=False)
-                plt.close(fig_a)
+                fig_a = None
+                try:
+                    # 図の生成・PNG化・図の破棄をロックで保護
+                    with _PLOT_LOCK:
+                        if channel_type == "U形":
+                            fig_a = draw_section("U形", h_design_a_mm, w_mm=w_a, h_mm=h_a, w_bottom_mm=w_bottom_a, r_bottom_mm=r_bottom_a)
+                        elif channel_type == "円形":
+                            fig_a = draw_section("円形", h_design_a_mm, d_mm=d_a)
+                        elif channel_type == "台形":
+                            fig_a = draw_section("台形", h_design_a_mm, b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a)
+                        display_figure_inline(fig_a, height=520, width=520)
+                finally:
+                    if fig_a is not None:
+                        with _PLOT_LOCK:
+                            plt.close(fig_a)
 
         with st.container(key="checkbox_zone"):
             st.markdown("""
@@ -1447,15 +1483,21 @@ with tabB:
         with col_space_r:
             st.empty()
 
-        fig = draw_catchment_layout(
-            v_req=v_req,
-            a_in_internal=a_in_internal,
-            a_dir_internal=a_dir_internal,
-            a_in_external=a_in_external,
-            area_unit=area_unit
-        )
-        st.pyplot(fig)
-        plt.close(fig)
+        fig = None
+        try:
+            with _PLOT_LOCK:
+                fig = draw_catchment_layout(
+                    v_req=v_req,
+                    a_in_internal=a_in_internal,
+                    a_dir_internal=a_dir_internal,
+                    a_in_external=a_in_external,
+                    area_unit=area_unit
+                )
+                display_figure_inline(fig, height=460, width=820)
+        finally:
+            if fig is not None:
+                with _PLOT_LOCK:
+                    plt.close(fig)
 
 # ====================================================
 # 【タブC】機能C：限界集水面積の逆算（現在非表示）
@@ -1615,4 +1657,4 @@ if False:
                         fig_b = draw_section("円形", h_design_b_mm, d_mm=d_b)
                     elif channel_type_b == "台形":
                         fig_b = draw_section("台形", h_design_b_mm, b1_mm=b1_b, b2_mm=b2_b, h_mm=h_b)
-                    st.pyplot(fig_b, use_container_width=False)
+                    display_figure_inline(fig_b, height=520, width=520)
