@@ -9,39 +9,34 @@ import math
 import platform
 import base64
 from io import BytesIO
-from threading import RLock
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
-import streamlit.components.v1 as components
-
-# Matplotlib の描画状態を共有する処理を同時実行しない
-_PLOT_LOCK = RLock()
 
 
-def display_figure_inline(fig, height=520, width=520):
-    """Matplotlibの図をPNGに変換し、通常の画像URLを使わず指定サイズで表示する。"""
-    buffer = BytesIO()
-    fig.savefig(
-        buffer,
-        format="png",
-        dpi=150,
-        bbox_inches="tight",
-        facecolor="white",
-    )
-    png_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
-    html = f"""
-    <div style="width:{width}px; margin:0; padding:0; display:flex; justify-content:center; align-items:flex-start;">
-      <img src="data:image/png;base64,{png_b64}" alt="図表"
-           style="display:block; width:100%; max-width:none; max-height:{height - 12}px; height:auto; object-fit:contain;" />
-    </div>
+def render_figure_inline(fig, width_px):
+    """Render a Matplotlib figure as an inline PNG, avoiding Streamlit's media URL.
+
+    The image width is fixed to preserve the intended layout; height follows the
+    original figure aspect ratio. st.html inserts this HTML in the page rather
+    than allocating a tall iframe.
     """
-    # iframe側にも幅を指定しないと、親カラムの幅に画像が縮小されるため固定幅にする。
-    components.html(html, width=width, height=height, scrolling=False)
-
+    buffer = BytesIO()
+    fig.savefig(buffer, format="png", dpi=fig.get_dpi())
+    png_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
+    html = (
+        f'<div style="display:block; width:{width_px}px; max-width:none; '
+        f'margin:0; padding:0; line-height:0; overflow:visible;">'
+        f'<img alt="図形" src="data:image/png;base64,{png_b64}" '
+        f'style="display:block; width:{width_px}px !important; '
+        f'max-width:none !important; height:auto !important; '
+        f'margin:0; padding:0; border:0;" />'
+        f'</div>'
+    )
+    st.html(html)
 
 # ページ基本設定
 st.set_page_config(page_title="雨水排水設計ツール", layout="wide")
@@ -433,7 +428,7 @@ def calculate_detention_basin(
 # ----------------------------------------------------
 def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None, d_mm=None, b1_mm=None, b2_mm=None, r_bottom_mm=None):
     # 1. 共通プロット設定・ヘルパー関数定義
-    # 他のセッションの図を閉じないよう、ここでは plt.close('all') を呼ばない
+    plt.close('all')
 
     fig, ax = plt.subplots(figsize=(5, 5))
     ax.set_aspect('equal', adjustable='box')
@@ -1060,8 +1055,7 @@ with tabA:
         h_m = h_design_a_mm / 1000.0
         Fr = V_max_a / ((g * h_m) ** 0.5) if h_m > 0.0 else 0.0
 
-        # 判定結果＋水路断面図を囲む外枠の高さを固定（表示内容による縦伸びを防止）
-        with st.container(border=True, height=620):
+        with st.container(height=396, border=True):
             use_modified_v_a = st.session_state.get("use_modified_v_a", False)
 
             if use_modified_v_a and Fr > 1.0:
@@ -1126,21 +1120,14 @@ with tabA:
                     st.metric(label="径深 R", value=f"{R_design_a:.4f} m")
 
             with col_res_right:
-                fig_a = None
-                try:
-                    # 図の生成・PNG化・図の破棄をロックで保護
-                    with _PLOT_LOCK:
-                        if channel_type == "U形":
-                            fig_a = draw_section("U形", h_design_a_mm, w_mm=w_a, h_mm=h_a, w_bottom_mm=w_bottom_a, r_bottom_mm=r_bottom_a)
-                        elif channel_type == "円形":
-                            fig_a = draw_section("円形", h_design_a_mm, d_mm=d_a)
-                        elif channel_type == "台形":
-                            fig_a = draw_section("台形", h_design_a_mm, b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a)
-                        display_figure_inline(fig_a, height=520, width=520)
-                finally:
-                    if fig_a is not None:
-                        with _PLOT_LOCK:
-                            plt.close(fig_a)
+                if channel_type == "U形":
+                    fig_a = draw_section("U形", h_design_a_mm, w_mm=w_a, h_mm=h_a, w_bottom_mm=w_bottom_a, r_bottom_mm=r_bottom_a)
+                elif channel_type == "円形":
+                    fig_a = draw_section("円形", h_design_a_mm, d_mm=d_a)
+                elif channel_type == "台形":
+                    fig_a = draw_section("台形", h_design_a_mm, b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a)
+                render_figure_inline(fig_a, width_px=260)
+                plt.close(fig_a)
 
         with st.container(key="checkbox_zone"):
             st.markdown("""
@@ -1484,21 +1471,15 @@ with tabB:
         with col_space_r:
             st.empty()
 
-        fig = None
-        try:
-            with _PLOT_LOCK:
-                fig = draw_catchment_layout(
-                    v_req=v_req,
-                    a_in_internal=a_in_internal,
-                    a_dir_internal=a_dir_internal,
-                    a_in_external=a_in_external,
-                    area_unit=area_unit
-                )
-                display_figure_inline(fig, height=460, width=820)
-        finally:
-            if fig is not None:
-                with _PLOT_LOCK:
-                    plt.close(fig)
+        fig = draw_catchment_layout(
+            v_req=v_req,
+            a_in_internal=a_in_internal,
+            a_dir_internal=a_dir_internal,
+            a_in_external=a_in_external,
+            area_unit=area_unit
+        )
+        render_figure_inline(fig, width_px=840)
+        plt.close(fig)
 
 # ====================================================
 # 【タブC】機能C：限界集水面積の逆算（現在非表示）
@@ -1658,4 +1639,4 @@ if False:
                         fig_b = draw_section("円形", h_design_b_mm, d_mm=d_b)
                     elif channel_type_b == "台形":
                         fig_b = draw_section("台形", h_design_b_mm, b1_mm=b1_b, b2_mm=b2_b, h_mm=h_b)
-                    display_figure_inline(fig_b, height=520, width=520)
+                    render_figure_inline(fig_b, width_px=260)
