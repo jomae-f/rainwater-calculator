@@ -1054,7 +1054,7 @@ with tabA:
         h_m = h_design_a_mm / 1000.0
         Fr = V_max_a / ((g * h_m) ** 0.5) if h_m > 0.0 else 0.0
 
-        with st.container(height=396, border=True):
+        with st.container(height=480, border=True):
             use_modified_v_a = st.session_state.get("use_modified_v_a", False)
 
             if use_modified_v_a and Fr > 1.0:
@@ -1125,7 +1125,7 @@ with tabA:
                     fig_a = draw_section("円形", h_design_a_mm, d_mm=d_a)
                 elif channel_type == "台形":
                     fig_a = draw_section("台形", h_design_a_mm, b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a)
-                render_figure_inline(fig_a, width_px=260)
+                render_figure_inline(fig_a, width_px=480)
                 plt.close(fig_a)
 
         with st.container(key="checkbox_zone"):
@@ -1477,7 +1477,7 @@ with tabB:
             a_in_external=a_in_external,
             area_unit=area_unit
         )
-        render_figure_inline(fig, width_px=840)
+        render_figure_inline(fig, width_px=1200)
         plt.close(fig)
 
 # ====================================================
