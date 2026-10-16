@@ -6,8 +6,6 @@
 # 1-1. インポート・ページ設定・CSS定義
 # ----------------------------------------------------
 import math
-import matplotlib
-matplotlib.use('Agg') 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -629,7 +627,7 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
 # ----------------------------------------------------
 def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, area_unit="㎡"):
     # 日本語フォントの設定（環境に合わせて自動調整）
-    plt.rcParams['font.sans-serif'] = ['Noto Sans CJK JP', 'DejaVu Sans', 'sans-serif']
+    plt.rcParams['font.sans-serif'] = ['Meiryo', 'Yu Gothic', 'Hiragino Sans', 'sans-serif']
     
     # 1. 各エリアの有無とサイズ計算
     has_dir = a_dir_internal > 0
@@ -1401,7 +1399,7 @@ with tabB:
                 max-width: 150px !important;
                 flex: 0 0 150px !important;
                 margin-left: -60px !important;
-                margin-top: 7px !important;
+                margin-top: 4px !important;
             }
             div[data-testid="stHorizontalBlock"]:has(input[aria-label="深さ (m)"]) > div:nth-child(4) div[data-testid="stNumberInput"] {
                 width: 100% !important;
@@ -1445,7 +1443,6 @@ with tabB:
             area_unit=area_unit
         )
         st.pyplot(fig)
-        plt.close(fig)
 
 # ====================================================
 # 【タブC】機能C：限界集水面積の逆算（現在非表示）
