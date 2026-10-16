@@ -6,6 +6,8 @@
 # 1-1. インポート・ページ設定・CSS定義
 # ----------------------------------------------------
 import math
+import matplotlib
+matplotlib.use('Agg') 
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -1443,6 +1445,7 @@ with tabB:
             area_unit=area_unit
         )
         st.pyplot(fig)
+        plt.close(fig)
 
 # ====================================================
 # 【タブC】機能C：限界集水面積の逆算（現在非表示）
