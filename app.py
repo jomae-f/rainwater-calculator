@@ -7,6 +7,7 @@
 # ----------------------------------------------------
 import math
 import platform
+import io
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.patches as patches
@@ -1456,7 +1457,12 @@ with tabB:
             a_in_external=a_in_external,
             area_unit=area_unit
         )
-        st.pyplot(fig)
+        
+        # st.pyplot(fig) の代わりに、メモリ上の画像として渡す
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight", dpi=150)
+        buf.seek(0)
+        st.image(buf)
         plt.close(fig)
 
 # ====================================================
