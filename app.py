@@ -627,7 +627,7 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
 # ----------------------------------------------------
 def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, area_unit="㎡"):
     # 日本語フォントの設定（環境に合わせて自動調整）
-    plt.rcParams['font.sans-serif'] = ['Meiryo', 'Yu Gothic', 'Hiragino Sans', 'sans-serif']
+    # plt.rcParams['font.sans-serif'] = ['Meiryo', 'Yu Gothic', 'Hiragino Sans', 'sans-serif']
     
     # 1. 各エリアの有無とサイズ計算
     has_dir = a_dir_internal > 0
