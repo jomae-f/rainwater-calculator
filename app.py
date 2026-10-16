@@ -6,6 +6,7 @@
 # 1-1. インポート・ページ設定・CSS定義
 # ----------------------------------------------------
 import math
+import platform
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.patches as patches
@@ -628,9 +629,18 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
 # 3-2. 調整池・流域―概略図描画関数
 # ----------------------------------------------------
 def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, area_unit="㎡"):
-    # 日本語フォントの設定（環境に合わせて自動調整）
-    plt.rcParams['font.sans-serif'] = ['Meiryo', 'Yu Gothic', 'Hiragino Sans', 'sans-serif']
-    
+    # OSを判定して、それぞれの環境に最適なフォントを先頭にする
+    os_name = platform.system()
+    if os_name == "Windows":
+        base_font = "Meiryo"
+    elif os_name == "Darwin":  # Macの場合
+        base_font = "Hiragino Sans"
+    else:  # Linux（Streamlit Cloud）の場合
+        base_font = "Noto Sans CJK JP"
+
+    if base_font not in plt.rcParams['font.sans-serif']:
+        plt.rcParams['font.sans-serif'].insert(0, base_font)
+
     # 1. 各エリアの有無とサイズ計算
     has_dir = a_dir_internal > 0
     has_ext = a_in_external > 0
