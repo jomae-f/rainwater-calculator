@@ -6,6 +6,8 @@
 # 1-1. インポート・ページ設定・CSS定義
 # ----------------------------------------------------
 import math
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -626,6 +628,8 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
 # 3-2. 調整池・流域―概略図描画関数
 # ----------------------------------------------------
 def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, area_unit="㎡"):
+    # 日本語フォントの設定（環境に合わせて自動調整）
+    plt.rcParams['font.sans-serif'] = ['Meiryo', 'Yu Gothic', 'Hiragino Sans', 'sans-serif']
     
     # 1. 各エリアの有無とサイズ計算
     has_dir = a_dir_internal > 0
@@ -1441,6 +1445,7 @@ with tabB:
             area_unit=area_unit
         )
         st.pyplot(fig)
+        plt.close(fig)
 
 # ====================================================
 # 【タブC】機能C：限界集水面積の逆算（現在非表示）
