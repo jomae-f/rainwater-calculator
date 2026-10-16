@@ -1,13 +1,20 @@
+# ====================================================
+# ■ 第1章：初期設定・共通基盤
+# ====================================================
+
+# ----------------------------------------------------
+# 1-1. インポート・ページ設定・CSS定義
+# ----------------------------------------------------
 import math
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
 
-# 1. ページ設定（最優先で読み込み）
-st.set_page_config(page_title="雨水排水設計支援ツール", layout="wide")
+# ページ基本設定
+st.set_page_config(page_title="雨水排水設計ツール", layout="wide")
 
-# 2. CSSの埋め込み（見た目の定義）
+# スタイル定義（CSS）
 st.markdown("""
     <style>
     /* 入力項目ラベル */
@@ -164,20 +171,37 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. タイトル表示
-st.title("🌧️ 雨水排水設計支援ツール")
+# アプリケーションタイトル
+st.title("🌧️ 雨水排水設計ツール")
 
-# 4. セッション状態の初期化
+
+# ----------------------------------------------------
+# 1-2. セッション状態の初期化
+# ----------------------------------------------------
 if "upstream_Q" not in st.session_state:
     st.session_state["upstream_Q"] = 0.0
 
-# 5. コールバック関数（単位自動換算など）
+
+# ----------------------------------------------------
+# 1-3. コールバック関数（単位換算・勾配変換）
+# ----------------------------------------------------
 def convert_area_a():
     new_unit = st.session_state.area_unit_a
     if new_unit == "ha":
         st.session_state.area_val_a = st.session_state.get("area_val_a", 1000.0) / 10000.0
     else:
         st.session_state.area_val_a = st.session_state.get("area_val_a", 0.1000) * 10000.0
+
+def convert_area_b():
+    new_unit = st.session_state.basin_area_unit
+    if new_unit == "ha":
+        st.session_state.a_in_int = st.session_state.get("a_in_int", 3000.0) / 10000.0
+        st.session_state.a_dir_int = st.session_state.get("a_dir_int", 0.0) / 10000.0
+        st.session_state.a_in_ext = st.session_state.get("a_in_ext", 0.0) / 10000.0
+    else:
+        st.session_state.a_in_int = st.session_state.get("a_in_int", 0.3) * 10000.0
+        st.session_state.a_dir_int = st.session_state.get("a_dir_int", 0.0) * 10000.0
+        st.session_state.a_in_ext = st.session_state.get("a_in_ext", 0.0) * 10000.0
 
 def convert_slope_a():
     old_unit = st.session_state.get("prev_s_type_a", "‰")
@@ -200,85 +224,12 @@ def convert_slope_a():
 
     st.session_state.prev_s_type_a = new_unit
 
-# ----------------------------------------------------
-# 共通水理計算関数
-# ----------------------------------------------------
-def calculate_manning(
-    shape_type, slope_val, slope_type, roughness_n, ratio,
-    w_mm=None, h_mm=None, w_bottom_mm=None, r_bottom_mm=None,
-    d_mm=None, b1_mm=None, b2_mm=None
-):
-    if "‰" in slope_type or "パーミル" in slope_type:
-        S = slope_val / 1000.0
-    elif "%" in slope_type or "パーセント" in slope_type:
-        S = slope_val / 100.0
-    else:
-        S = 1.0 / slope_val if slope_val > 0 else 0.0
-
-    A_max, P_max, h_design_mm = 0.0, 0.0, 0.0
-
-    if shape_type == "U形":
-        B1, H = w_mm / 1000.0, h_mm / 1000.0
-        h_design = H * ratio
-        h_design_mm = h_design * 1000.0
-        
-        B2 = (w_bottom_mm / 1000.0) if w_bottom_mm is not None else B1
-        R = (r_bottom_mm / 1000.0) if r_bottom_mm is not None else 0.0
-        
-        slope_len = math.sqrt(((B1 - B2) / 2.0)**2 + H**2)
-        bh = B2 + (B1 - B2) * (h_design / H)
-        
-        if R > 0.0:
-            if h_design >= R:
-                A_max = ((B2 + bh) * h_design / 2.0) - (2.0 - math.pi / 2.0) * (R ** 2)
-                P_max = B2 + 2.0 * h_design * (slope_len / H) - 2.0 * R * ((slope_len / H) + 1.0) + math.pi * R
-            else:
-                A_max = ((B2 + bh) * h_design / 2.0) * (h_design / R)
-                P_max = B2 + 2.0 * h_design
-        else:
-            A_max = (B2 + bh) * h_design / 2.0
-            P_max = B2 + 2.0 * h_design * (slope_len / H)
-
-    elif shape_type == "円形":
-        D = d_mm / 1000.0
-        r = D / 2.0
-        h_design = D * ratio
-        h_design_mm = h_design * 1000.0
-        
-        cos_val = max(-1.0, min(1.0, (r - h_design) / r))
-        theta = 2.0 * math.acos(cos_val)
-        
-        if h_design <= r:
-            A_max = (r ** 2) * (theta - math.sin(theta)) / 2.0
-        else:
-            A_max = (math.pi * (r ** 2)) - ((r ** 2) * ((2.0 * math.pi - theta) - math.sin(2.0 * math.pi - theta)) / 2.0)
-            
-        P_max = r * theta
-
-    elif shape_type == "台形":
-        B1, B2, H = b1_mm / 1000.0, b2_mm / 1000.0, h_mm / 1000.0
-        h_design = H * ratio
-        h_design_mm = h_design * 1000.0
-        
-        bh = B2 + (B1 - B2) * (h_design / H)
-        slope_len = math.sqrt(((B1 - B2) / 2.0)**2 + H**2)
-        
-        A_max = (B2 + bh) * h_design / 2.0
-        P_max = B2 + 2.0 * h_design * (slope_len / H)
-
-    R_max = A_max / P_max if P_max > 0.0 else 0.0
-
-    if P_max > 0.0 and S > 0.0:
-        V_max = (1.0 / roughness_n) * (R_max ** (2.0 / 3.0)) * (S ** (1.0 / 2.0))
-        Q_max = A_max * V_max
-    else:
-        V_max, Q_max = 0.0, 0.0
-
-    return Q_max, V_max, h_design_mm, A_max, P_max, R_max
-
+# ====================================================
+# ■ 第2章：計算ロジック
+# ====================================================
 
 # ----------------------------------------------------
-# 共通水理計算関数
+# 2-1. 水路―水理計算関数
 # ----------------------------------------------------
 def calculate_manning(
     shape_type, slope_val, slope_type, roughness_n, ratio,
@@ -370,9 +321,86 @@ def calculate_manning(
 
 
 # ----------------------------------------------------
-# 断面描画関数
+# 2-2. 調整池容量・構造―計算関数
+# ----------------------------------------------------
+def calculate_detention_basin(
+    a_in_internal, a_dir_internal, a_in_external,
+    f_pre, f_post,
+    i_safe, i_50, i_100,
+    area_unit="㎡",
+    pro_mode=False,
+    orifice_depth=0.0, weir_top_w=0.0,
+    pipe_slope=0.0
+):
+    # 単位に応じてha（ヘクタール）に換算
+    if area_unit == "㎡":
+        a_in_int_ha = a_in_internal / 10000.0
+        a_dir_int_ha = a_dir_internal / 10000.0
+        a_in_ext_ha = a_in_external / 10000.0
+    else:
+        a_in_int_ha = a_in_internal
+        a_dir_int_ha = a_dir_internal
+        a_in_ext_ha = a_in_external
+
+    # 1. 面積の定義
+    a1 = a_in_int_ha  # 区域内流入面積
+    a2 = a_in_ext_ha  # 区域外流入面積
+    total_dev_area = a_in_int_ha + a_dir_int_ha  # 総開発面積（区域内流入 ＋ 区域内直接）
+
+    # 2. 開発前許容量 (Q_pre) と 開発後直接流出量 (Q_dir) の算出
+    a_all_ha = a_in_int_ha + a_dir_int_ha
+    q_pre = (1.0 / 360.0) * f_pre * i_safe * a_all_ha
+    q_dir = (1.0 / 360.0) * f_post * i_50 * a_dir_int_ha
+    
+    # 3. 調整池からの許容放流量 (Q_allow)
+    q_allow = max(0.0, q_pre - q_dir)
+
+    # 4. 許容放流量に対応した逆算降雨強度 (rc)
+    if a1 > 0 and f_pre > 0:
+        rc = (360.0 * q_allow) / (a1 * f_pre)
+    else:
+        rc = 0.0
+
+    # 5. 補正係数 alpha の判定（2ha未満: 1, 2ha以上: 2）
+    alpha = 2.0 if total_dev_area >= 2.0 else 1.0
+
+    # 6. 必要調整容量の計算 (V1, V2, V)
+    ri = i_50    # 流入側降雨強度 (1/50確率)
+    t1 = 30.0    # 降雨継続時間 (分)
+
+    # V1: 区域内流入面積に対応する容量
+    term1 = (ri * f_post - (rc / 2.0) * f_pre)
+    v1 = max(0.0, term1 * alpha * t1 * 60.0 * a1 * (1.0 / 360.0))
+
+    # V2: 区域外流入面積に対応する容量（流出係数は現況 f_pre を使用）
+    term2 = (ri * f_pre - (rc / 2.0) * f_pre)
+    v2 = max(0.0, term2 * alpha * t1 * 60.0 * a2 * (1.0 / 360.0))
+
+    # 総必要容量 V = V1 + V2
+    v_req = v1 + v2
+
+    # プロモード用の詳細検討（オプション）
+    weir_depth_result = 0.0
+    pipe_dia_result = 0.0
+    orifice_area_result = 0.0
+
+    if pro_mode:
+        weir_depth_result = math.cbrt((q_allow ** 2) / (9.8 * (weir_top_w if weir_top_w > 0 else 1.0) ** 2)) if q_allow > 0 else 0.0
+        pipe_dia_result = 300.0  # プレースホルダー (mm)
+        orifice_area_result = orifice_depth * 0.1  # プレースホルダー (㎡)
+
+    return v_req, v1, v2, q_pre, q_dir, q_allow, rc, weir_res if 'weir_res' in locals() else 0.0, pipe_dia_result, orifice_area_result
+
+
+# ====================================================
+# ■ 第3章：描画・ビジュアル関数
+# ====================================================
+
+# ----------------------------------------------------
+# 3-1. 水路―断面描画関数
 # ----------------------------------------------------
 def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None, d_mm=None, b1_mm=None, b2_mm=None, r_bottom_mm=None):
+    # 1. 共通プロット設定・ヘルパー関数定義
     plt.close('all')
 
     fig, ax = plt.subplots(figsize=(5, 5))
@@ -409,6 +437,7 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
         tri_y = [y + size * 1.5, y + size * 1.5, y, y + size * 1.5]
         ax.plot(tri_x, tri_y, color=water_line_color, lw=1.8, zorder=5)
 
+    # 2. U形断面の計算と描画処理
     if shape_type == "U形":
         B1 = float(w_mm) if w_mm else 100.0
         B2 = float(w_bottom_mm) if (w_bottom_mm is not None and w_bottom_mm > 0) else B1
@@ -530,6 +559,7 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
                 fontsize=11, color=dim_color, fontweight='bold', ha='left', va='bottom'
             )
 
+    # 3. 円形断面の計算と描画処理
     elif shape_type == "円形":
         D = d_mm if d_mm else 100
         h_w = min(h_design_mm, D)
@@ -560,6 +590,7 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
         if hw_s > 0:
             add_dim_line((-r_s - dim_off, 0), (-r_s - dim_off, hw_s), f"h={h_w:.0f}", is_horizontal=False)
 
+    # 4. 台形断面の計算と描画処理
     elif shape_type == "台形":
         B1, B2, H = b1_mm if b1_mm else 100, b2_mm if b2_mm else 50, h_mm if h_mm else 100
         h_w = min(h_design_mm, H)
@@ -587,20 +618,213 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
         if hw_s > 0:
             add_dim_line((-b1_s / 2.0 - dim_off_x, 0), (-b1_s / 2.0 - dim_off_x, hw_s), f"h={h_w:.0f}", is_horizontal=False)
 
+    # 5. 共通レイアウト調整と図の返却
     plt.tight_layout()
     return fig
+
 # ----------------------------------------------------
-# メイン画面：タブ切り替え
+# 3-2. 調整池・流域―概略図描画関数
 # ----------------------------------------------------
-tabA, = st.tabs(["📋 水路の流下能力判定"])
+def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, area_unit="㎡"):
+    # 日本語フォントの設定（環境に合わせて自動調整）
+    plt.rcParams['font.sans-serif'] = ['Meiryo', 'Yu Gothic', 'Hiragino Sans', 'sans-serif']
+    
+    # 1. 各エリアの有無とサイズ計算
+    has_dir = a_dir_internal > 0
+    has_ext = a_in_external > 0
+
+    total_inner = a_in_internal + (a_dir_internal if has_dir else 0.0)
+    
+    if not has_dir or total_inner == 0:
+        width_1 = 9.0
+        width_dir = 0.0
+    else:
+        r1 = a_in_internal / total_inner
+        width_1 = max(2.5, min(7.8, 9.0 * r1))
+        width_dir = 9.0 - width_1
+    
+    x_split = 0.5 + width_1  # 境界のx座標
+
+    # 縦方向の各要素の高さ
+    y_river_top = 1.0
+    dev_height = 3.0
+    y_dev_top = y_river_top + dev_height  # 4.0
+
+    # 区域外エリアの高さと、グラフ全体の縦の上限 (top_limit)
+    if has_ext:
+        total_all = total_inner + a_in_external
+        ext_ratio = a_in_external / total_all if total_all > 0 else 0.0
+        height_ext = max(0.8, min(2.5, 0.8 + 2.0 * ext_ratio))
+        y_ext_top = y_dev_top + height_ext
+        top_limit = y_ext_top + 0.3
+    else:
+        height_ext = 0.0
+        y_ext_top = y_dev_top
+        top_limit = 4.5
+
+    # 全体サイズ
+    fig, ax = plt.subplots(figsize=(6.5, 3.4))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, top_limit)
+    ax.axis('off')  # 軸の目盛りを非表示
+
+
+    # 2. 背景の塗りつぶし（最背面）
+    # 河川・水路背景（左右グラデーションフェード）
+    nx, ny = 200, 20
+    rgba = np.zeros((ny, nx, 4))
+    rgba[:, :, 0] = 0.878  # R (#e0f2fe)
+    rgba[:, :, 1] = 0.949  # G
+    rgba[:, :, 2] = 0.996  # B
+    alpha = 0.5 + 0.4 * np.sin(np.linspace(0, np.pi, nx))
+    rgba[:, :, 3] = alpha
+    ax.imshow(rgba, extent=[0.5, 9.5, 0.2, 1.0], aspect='auto', origin='lower', zorder=1)
+
+    # 開発区域外背景（存在する場合のみ描画）
+    if has_ext:
+        ext_bg = patches.Rectangle((0.5, y_dev_top), 9.0, height_ext, facecolor='#f1f5f9', edgecolor='none', zorder=1)
+        ax.add_patch(ext_bg)
+
+    # 区域内流入エリア 塗りつぶし
+    in_box_fill = patches.Rectangle((0.5, y_river_top), width_1, dev_height, facecolor='#dbfee8', edgecolor='none', zorder=1)
+    ax.add_patch(in_box_fill)
+
+    # 直接放流エリア 塗りつぶし（存在する場合のみ描画）
+    if has_dir and width_dir > 0:
+        dir_box_fill = patches.Rectangle((x_split, y_river_top), width_dir, dev_height, facecolor='#ffedd5', edgecolor='none', zorder=1)
+        ax.add_patch(dir_box_fill)
+
+    # 調整池 塗りつぶし（左下隅 幅2.1（横長に変更）, 高さ0.9）
+    pond_width = 2.1
+    pond_height = 0.9
+    pond_fill = patches.Rectangle((0.5, y_river_top), pond_width, pond_height, facecolor='#06b6d4', edgecolor='none', zorder=2)
+    ax.add_patch(pond_fill)
+
+
+    # 3. 枠線・ライン（中間層）
+    # 河川・水路の上下境界線（左右は枠線なし）
+    ax.plot([0.5, 9.5], [1.0, 1.0], color='#0284c7', linewidth=1.5, zorder=3)
+    ax.plot([0.5, 9.5], [0.2, 0.2], color='#0284c7', linewidth=1.5, zorder=3)
+
+    # 開発区域外外枠（存在する場合のみ描画）
+    if has_ext:
+        ext_frame = patches.Rectangle((0.5, y_dev_top), 9.0, height_ext, facecolor='none', edgecolor='#64748b', linewidth=1.5, linestyle='--', zorder=3)
+        ax.add_patch(ext_frame)
+
+    # 開発区域全体 - 太い黒枠
+    dev_box_frame = patches.Rectangle((0.5, y_river_top), 9.0, dev_height, facecolor='none', edgecolor='#0f172a', linewidth=2.0, zorder=3)
+    ax.add_patch(dev_box_frame)
+
+    # 調整池の上・右の青い線
+    ax.plot([0.5, 0.5 + pond_width], [y_river_top + pond_height, y_river_top + pond_height], color='#0e7490', linewidth=2.0, zorder=4)
+    ax.plot([0.5 + pond_width, 0.5 + pond_width], [y_river_top, y_river_top + pond_height], color='#0e7490', linewidth=2.0, zorder=4)
+
+
+    # 4. テキスト（前面）
+    # 単位に応じて表示桁数や換算を定義
+    fmt = ',.4f' if area_unit == 'ha' else ',.2f'
+
+    if area_unit == 'ha':
+        display_pond_area = v_req / 10000.0  # m2 から ha に換算
+        pond_fmt = ',.4f'
+        pond_unit = 'ha'
+    else:
+        display_pond_area = v_req
+        pond_fmt = ',.2f'
+        pond_unit = 'm2'
+
+    ax.text(5.0, 0.6, '河川・水路', color='#0369a1', fontsize=10, fontweight='bold', ha='center', va='center', zorder=5)
+    
+    # 河川の波線（左右に3つずつ計6つ配置）
+    waves = [
+        (1.6, 0.45),  # 1つ目の波
+        (2.6, 0.70),  # 2つ目の波
+        (3.6, 0.50),  # 3つ目の波
+        (6.4, 0.45),  # 4つ目の波
+        (7.3, 0.70),  # 5つ目の波
+        (8.2, 0.50)   # 6つ目の波
+    ]
+    
+    for wx, wy in waves:
+        ax.text(wx, wy, '～', color='#0284c7', fontsize=8.5, alpha=0.6, ha='center', va='center', zorder=4)
+    
+    # 開発区域外の左上ラベルとテキスト
+    if has_ext:
+        ax.text(0.7, y_dev_top + height_ext - 0.25, '開発区域外', fontsize=10, fontweight='bold', color='#475569', va='center', zorder=5)
+        text_ext_y = y_dev_top + height_ext / 2
+        ax.text(5.0, text_ext_y + 0.15, '調整池流入', fontsize=9, fontweight='bold', color='#475569', ha='center', va='center', zorder=5)
+        ax.text(5.0, text_ext_y - 0.15, f'{a_in_external:{fmt}} {area_unit}', fontsize=8.5, color='#334155', ha='center', va='center', zorder=5)
+    
+    # 開発区域の左上ラベル
+    ax.text(0.7, y_dev_top - 0.25, '開発区域', fontsize=10, fontweight='bold', color='#0f172a', va='center', zorder=5)
+    
+    # 区域内流入（調整池流入）のテキスト
+    in_cy = y_river_top + dev_height / 2
+    ax.text(0.5 + width_1 / 2, in_cy + 0.15, '調整池流入', fontsize=9, fontweight='bold', color='#166534', ha='center', va='center', zorder=5)
+    ax.text(0.5 + width_1 / 2, in_cy - 0.15, f'{a_in_internal:{fmt}} {area_unit}', fontsize=8.5, color='#14532d', ha='center', va='center', zorder=5)
+
+    # 直接放流エリアのテキスト
+    if has_dir and width_dir > 0:
+        dir_cx = x_split + width_dir / 2
+        ax.text(dir_cx, in_cy + 0.15, '直接放流', fontsize=9, fontweight='bold', color='#c2410c', ha='center', va='center', zorder=5)
+        ax.text(dir_cx, in_cy - 0.15, f'{a_dir_internal:{fmt}} {area_unit}', fontsize=8.5, color='#9a3412', ha='center', va='center', zorder=5)
+
+    # 調整池テキスト（単位に連動）
+    ax.text(0.5 + pond_width / 2, y_river_top + pond_height * 0.65, '調整池', fontsize=10.5, fontweight='bold', color='white', ha='center', va='center', zorder=5)
+    ax.text(0.5 + pond_width / 2, y_river_top + pond_height * 0.3, f'{display_pond_area:{pond_fmt}} {pond_unit}', fontsize=10, fontweight='bold', color='white', ha='center', va='center', zorder=5)
+
+
+    # 5. 矢印とフローのラベル（最前面）
+    arrow_edge = '#ffffff'
+    arrow_lw = 1.0
+
+    # ① 区域外 → 調整池への矢印（垂直方向の直線）
+    if has_ext:
+        ax.annotate('', xy=(2.2, y_river_top + pond_height * 0.7), xytext=(2.2, y_ext_top - 0.6), 
+                    arrowprops=dict(arrowstyle="simple,head_length=0.60,head_width=0.60,tail_width=0.30", 
+                                    facecolor='#94a3b8', edgecolor=arrow_edge, lw=arrow_lw), zorder=5)
+
+    # ② 区域内 → 調整池への矢印（水平方向の直線）※緑系に変更
+    in_center_x = 0.5 + width_1 / 2
+    if in_center_x > pond_width + 0.5:
+        ax.annotate('', xy=(0.5 + pond_width - 0.3, y_river_top + pond_height * 0.55), 
+                    xytext=(0.5 + pond_width + 1.0, y_river_top + pond_height * 0.55), 
+                    arrowprops=dict(arrowstyle="simple,head_length=0.60,head_width=0.60,tail_width=0.30", 
+                                    facecolor='#16a34a', edgecolor=arrow_edge, lw=arrow_lw), zorder=5)
+
+    # ③ 調整池 → 河川への放流矢印 (Q_allow)
+    ax.annotate('', xy=(0.8, 0.5), xytext=(0.8, 1.2), 
+                arrowprops=dict(arrowstyle="simple,head_length=0.75,head_width=0.75,tail_width=0.30", 
+                                facecolor='#0284c7', edgecolor=arrow_edge, lw=arrow_lw), zorder=5)
+
+    # ④ 直接放流エリア → 河川への放流矢印 (Q_dir)
+    if has_dir and width_dir > 0:
+        dir_center_x = x_split + width_dir / 2
+        ax.annotate('', xy=(dir_center_x, 0.5), xytext=(dir_center_x, 1.5), 
+                    arrowprops=dict(arrowstyle="simple,head_length=0.75,head_width=0.75,tail_width=0.30", 
+                                    facecolor='#f97316', edgecolor=arrow_edge, lw=arrow_lw), zorder=5)
+
+    # 上下左右の余白を限界までカット
+    plt.tight_layout(pad=0.2)
+    return fig
 
 # ====================================================
-# 【タブA】機能A：水路の流下能力判定
+# ■ 第4章：メイン画面・UI構築
 # ====================================================
+
+# ----------------------------------------------------
+# 4-1. タブ定義
+# ----------------------------------------------------
+tabA, tabB = st.tabs(["📋 水路流下能力", "📋 調整池容量・面積"])
+
+
+# ----------------------------------------------------
+# 4-2. 【タブA】水路流下能力
+# ----------------------------------------------------
 with tabA:
     col_left_a, col_space_a, col_right_a = st.columns([1.0, 0.1, 1.4], gap="large")
     
-    # --- 左側：条件入力領域 ---
+    # 1. 条件入力領域（左側）
     with col_left_a:
         st.subheader("⚙️ 条件入力")
         col_sub_left, col_sub_right = st.columns(2, gap="medium")
@@ -709,7 +933,8 @@ with tabA:
                         "単位", ["‰", "%", "1/N"], 
                         label_visibility="collapsed", 
                         key="s_type_a",
-                        on_change=convert_slope_a                    )
+                        on_change=convert_slope_a
+                    )
                     
                 with col_s_val:
                     if "s_val_a" not in st.session_state:
@@ -767,7 +992,7 @@ with tabA:
         with col_sub_bottom_right:
             ratio_a = st.slider("水深比 (%)", min_value=10, max_value=100, value=80, step=5, key="ratio_a") / 100.0
 
-    # --- 計算実行 ---
+    # 2. 計算実行
     if channel_type == "U形":
         Q_max_a, V_max_a, h_design_a_mm, A_design_a, P_design_a, R_design_a = calculate_manning(
             shape_type="U形", slope_val=s_val_a, slope_type=s_type_a, roughness_n=n_a, ratio=ratio_a,
@@ -786,7 +1011,7 @@ with tabA:
 
     Q_in_a = (1.0 / 360.0) * C_a * I_a * area_ha_a
 
-    # --- 右側：結果表示 & 断面描画 ---
+    # 3. 判定結果 & 断面描画（右側）
     with col_right_a:
         st.subheader("📊 判定結果")
         
@@ -976,8 +1201,251 @@ with tabA:
                 st.session_state["upstream_Q"] = 0.0
                 st.rerun()
 
+
+# ----------------------------------------------------
+# 4-3. 【タブB】調整池容量・面積
+# ----------------------------------------------------
+
+# 地域ごとの降雨強度プリセット
+RAIN_PRESETS = {
+    "中部": {"i_safe": 28.0, "i_50": 122.0, "i_100": 134.0},
+    "東部": {"i_safe": 23.0, "i_50": 104.0, "i_100": 114.0},
+    "西部": {"i_safe": 22.0, "i_50": 117.0, "i_100": 128.0},
+}
+
+def update_rain_by_region():
+    region = st.session_state.get("rain_region", "中部")
+    preset = RAIN_PRESETS.get(region, RAIN_PRESETS["中部"])
+    st.session_state["i_safe_input"] = preset["i_safe"]
+    st.session_state["i_50_input"] = preset["i_50"]
+    st.session_state["i_100_input"] = preset["i_100"]
+
+with tabB:
+    col_left_b, col_space_b, col_right_b = st.columns([1.0, 0.193, 1.4], gap="large")
+    
+    # 1. 条件入力領域（左側）
+    with col_left_b:
+        st.subheader("⚙️ 条件入力")
+        
+        current_unit = st.session_state.get("basin_area_unit", "㎡")
+        
+        # 単位に応じてステップとフォーマットを切り替え
+        if current_unit == "ha":
+            step_val = 0.0010
+            fmt_val = "%.4f"
+        else:
+            step_val = 100.0
+            fmt_val = None
+
+        st.markdown('<p style="font-size: 24px; font-weight: bold; color: #0f172a; margin-bottom: 8px;">流域面積</p>', unsafe_allow_html=True)
+        
+        # 初回未登録時のセッション初期値セット
+        if "a_in_int" not in st.session_state:
+            st.session_state.a_in_int = 3000.0 if current_unit == "㎡" else 0.5
+        if "a_dir_int" not in st.session_state:
+            st.session_state.a_dir_int = 0.0 if current_unit == "㎡" else 0.2
+        if "a_in_ext" not in st.session_state:
+            st.session_state.a_in_ext = 0.0 if current_unit == "㎡" else 0.1
+
+        # 4つを1行に横並び
+        col_a1, col_a2, col_a3, col_a4 = st.columns([3, 3, 3, 2], gap="medium")
+        
+        with col_a1:
+            st.markdown(f'<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">区域内調整池流入</p>', unsafe_allow_html=True)
+            if current_unit == "㎡":
+                a_in_internal = st.number_input("区域内流入", min_value=0.0, step=100.0, key="a_in_int", label_visibility="collapsed")
+            else:
+                a_in_internal = st.number_input("区域内流入", min_value=0.0, step=0.0010, format="%.4f", key="a_in_int", label_visibility="collapsed")
+                
+        with col_a2:
+            st.markdown(f'<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">区域内直接放流</p>', unsafe_allow_html=True)
+            if current_unit == "㎡":
+                a_dir_internal = st.number_input("区域内直接", min_value=0.0, step=100.0, key="a_dir_int", label_visibility="collapsed")
+            else:
+                a_dir_internal = st.number_input("区域内直接", min_value=0.0, step=0.0010, format="%.4f", key="a_dir_int", label_visibility="collapsed")
+            
+        with col_a3:
+            st.markdown(f'<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">区域外調整池流入</p>', unsafe_allow_html=True)
+            if current_unit == "㎡":
+                a_in_external = st.number_input("区域外流入", min_value=0.0, step=100.0, key="a_in_ext", label_visibility="collapsed")
+            else:
+                a_in_external = st.number_input("区域外流入", min_value=0.0, step=0.0010, format="%.4f", key="a_in_ext", label_visibility="collapsed")
+                
+        with col_a4:
+            st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">単位</p>', unsafe_allow_html=True)
+            area_unit = st.selectbox(
+                "面積単位", ["㎡", "ha"], 
+                index=0, 
+                key="basin_area_unit", 
+                label_visibility="collapsed",
+                on_change=convert_area_b
+            )
+
+        st.markdown('<hr style="margin-top: 4px; margin-bottom: 24px; border: none; border-top: 1px solid #cbd5e1;">', unsafe_allow_html=True)
+
+        # 降雨強度・流出係数トグル
+        param_mode = st.toggle("地域(降雨強度)・流出係数選択", value=False)
+        
+        if param_mode:
+            st.markdown('<p style="font-size: 24px; font-weight: bold; color: #0f172a; margin-top: -10px; margin-bottom: 8px;">降雨強度 (mm/h)</p>', unsafe_allow_html=True)
+            
+            if "rain_region" not in st.session_state:
+                st.session_state.rain_region = "中部"
+            if "i_safe_input" not in st.session_state:
+                st.session_state.i_safe_input = RAIN_PRESETS["中部"]["i_safe"]
+            if "i_50_input" not in st.session_state:
+                st.session_state.i_50_input = RAIN_PRESETS["中部"]["i_50"]
+            if "i_100_input" not in st.session_state:
+                st.session_state.i_100_input = RAIN_PRESETS["中部"]["i_100"]
+
+            col_r_region, col_r1, col_r2, col_r3 = st.columns([2, 3, 3, 3], gap="medium")
+            
+            with col_r_region:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 8px;">地域</p>', unsafe_allow_html=True)
+                st.selectbox(
+                    "対象地域", ["中部", "東部", "西部"], 
+                    key="rain_region", 
+                    label_visibility="collapsed",
+                    on_change=update_rain_by_region
+                )
+                
+            with col_r1:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 8px;">1/1確率</p>', unsafe_allow_html=True)
+                i_safe = st.number_input("1/1確率", step=1.0, key="i_safe_input", label_visibility="collapsed")
+                
+            with col_r2:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 8px;">1/50確率</p>', unsafe_allow_html=True)
+                i_50 = st.number_input("1/50確率", step=1.0, key="i_50_input", label_visibility="collapsed")
+                
+            with col_r3:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 8px;">1/100確率</p>', unsafe_allow_html=True)
+                i_100 = st.number_input("1/100確率", step=1.0, key="i_100_input", label_visibility="collapsed")
+
+            st.markdown('<hr style="margin-top: 16px; margin-bottom: 4px; border: none; border-top: 1px solid #cbd5e1;">', unsafe_allow_html=True)
+
+            st.markdown('<p style="font-size: 24px; font-weight: bold; color: #0f172a; margin-top: 5px; margin-bottom: 8px;">流出係数</p>', unsafe_allow_html=True)
+            
+            col_rest1, col_rest2 = st.columns(2, gap="medium")
+            with col_rest1:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 8px;">開発前</p>', unsafe_allow_html=True)
+                f_pre = st.slider("開発前", min_value=0.1, max_value=1.0, value=0.60, step=0.05, key="f_pre_slider", label_visibility="collapsed")
+
+            with col_rest2:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 8px;">開発後</p>', unsafe_allow_html=True)
+                f_post = st.slider("開発後", min_value=0.1, max_value=1.0, value=0.90, step=0.05, key="f_post_slider", label_visibility="collapsed")
+
+            st.markdown('<hr style="margin-top: 4px; margin-bottom: 24px; border: none; border-top: 1px solid #cbd5e1;">', unsafe_allow_html=True)
+        else:
+            f_pre, f_post = 0.60, 0.90
+            i_safe = RAIN_PRESETS["中部"]["i_safe"]
+            i_50 = RAIN_PRESETS["中部"]["i_50"]
+            i_100 = RAIN_PRESETS["中部"]["i_100"]
+
+        # 詳細検討トグル
+        pro_mode = st.toggle("詳細検討(未実装)", value=False)
+        
+        if pro_mode:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">オリフィス中心水深 (m)</p>', unsafe_allow_html=True)
+                orifice_depth = st.number_input("オリフィス中心水深", value=1.5, step=0.1, key="ori_depth_input", label_visibility="collapsed")
+            with col2:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">水通し長-上幅 (m)</p>', unsafe_allow_html=True)
+                weir_top_w = st.number_input("水通し長-上幅", value=2.0, step=0.1, key="weir_top_w_input", label_visibility="collapsed")
+            with col3:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 4px;">水通し長-下幅 (m)</p>', unsafe_allow_html=True)
+                weir_bot_w = st.number_input("水通し長-下幅", value=2.0, step=0.1, key="weir_bot_w_input", label_visibility="collapsed")
+
+            col4, col5, col6 = st.columns(3)
+            with col4:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 4px; margin-top: 8px;">放流管勾配 (%)</p>', unsafe_allow_html=True)
+                pipe_slope = st.number_input("放流管勾配", value=1.0, step=0.1, format="%.1f", key="pipe_s_input", label_visibility="collapsed")
+            with col5:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: #0f172a; margin-bottom: 4px; margin-top: 8px;">放流管粗度係数</p>', unsafe_allow_html=True)
+                pipe_roughness = st.number_input("放流管粗度係数", value=0.013, step=0.001, format="%.3f", key="pipe_r_input", label_visibility="collapsed")
+            with col6:
+                st.markdown('<p style="font-size: 20px; font-weight: bold; color: transparent; margin-bottom: 4px; margin-top: 8px;">-</p>', unsafe_allow_html=True)
+                st.empty()
+        else:
+            orifice_depth, weir_top_w, weir_bot_w, pipe_slope, pipe_roughness = 0.0, 0.0, 0.0, 0.0, 0.0
+
+    # 2. 判定結果・概略図領域（右側）
+    with col_right_b:
+        st.subheader("📊 判定結果")
+        
+        v_req, v1, v2, q_pre, q_dir, q_allow, rc, weir_res, pipe_res, ori_res = calculate_detention_basin(
+            a_in_internal=a_in_internal,
+            a_dir_internal=a_dir_internal,
+            a_in_external=a_in_external,
+            f_pre=f_pre,
+            f_post=f_post,
+            i_safe=i_safe,
+            i_50=i_50,
+            i_100=i_100,
+            area_unit=area_unit,
+            pro_mode=pro_mode,
+            orifice_depth=orifice_depth if pro_mode else 0.0,
+            weir_top_w=weir_top_w if pro_mode else 0.0,
+            pipe_slope=pipe_slope if pro_mode else 0.0
+        )
+
+        st.markdown("""
+            <style>
+            div[data-testid="stHorizontalBlock"]:has(input[aria-label="深さ (m)"]) {
+                align-items: flex-start !important;
+                gap: 0rem !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(input[aria-label="深さ (m)"]) > div:nth-child(4) {
+                max-width: 150px !important;
+                flex: 0 0 150px !important;
+                margin-left: -60px !important;
+                margin-top: 7px !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(input[aria-label="深さ (m)"]) > div:nth-child(4) div[data-testid="stNumberInput"] {
+                width: 100% !important;
+            }
+            div[data-testid="stHorizontalBlock"]:has(input[aria-label="深さ (m)"]) > div:nth-child(4) [data-testid="stWidgetLabel"] p {
+                color: #64748b !important;
+                font-size: 21px !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+        if "basin_depth_input" not in st.session_state:
+            st.session_state["basin_depth_input"] = 1.0
+        current_depth = st.session_state.get("basin_depth_input", 1.0)
+
+        col_space_l, col_cap, col_area, col_depth, col_space_r = st.columns([0.3, 1.2, 1.2, 0.6, 1.0], gap="medium")
+        
+        with col_space_l:
+            st.empty()
+            
+        with col_cap:
+            st.markdown('<p style="font-size: 24px; font-weight: bold; color: #0f172a; margin-bottom: 2px;">必要容量</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="font-size: 56px; font-weight: bold; color: #0284c7; margin-top: 0px; margin-bottom: 0px; line-height: 1.1;">{v_req:,.2f} <span style="font-size: 36px; font-weight: bold; color: #334155;">m³</span></p>', unsafe_allow_html=True)
+            
+        with col_area:
+            calc_area = v_req / current_depth if current_depth > 0 else 0.0
+            st.markdown(f'<p style="font-size: 24px; font-weight: bold; color: #0f172a; margin-bottom: 2px;">必要面積</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="font-size: 56px; font-weight: bold; color: #0284c7; margin-top: 0px; margin-bottom: 0px; line-height: 1.1;">{calc_area:,.2f} <span style="font-size: 36px; font-weight: bold; color: #334155;">m²</span></p>', unsafe_allow_html=True)
+            
+        with col_depth:
+            basin_depth = st.number_input("深さ (m)", value=1.0, step=0.1, format="%.1f", key="basin_depth_input")
+            
+        with col_space_r:
+            st.empty()
+
+        fig = draw_catchment_layout(
+            v_req=v_req,
+            a_in_internal=a_in_internal,
+            a_dir_internal=a_dir_internal,
+            a_in_external=a_in_external,
+            area_unit=area_unit
+        )
+        st.pyplot(fig)
+
 # ====================================================
-# 【タブB】機能B：限界集水面積の逆算
+# 【タブC】機能C：限界集水面積の逆算（現在非表示）
 # ====================================================
 if False:
     with tabB:
