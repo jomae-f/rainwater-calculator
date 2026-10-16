@@ -17,18 +17,20 @@ import numpy as np
 import streamlit as st
 
 
-def render_figure_inline(fig, width_px):
+def render_figure_inline(fig, width_px, y_offset_px=0):
     """Render a Matplotlib figure as inline SVG, avoiding Streamlit's media URL.
 
     SVG is vector-based, so lines and text remain sharp when the image is scaled.
     The display width remains fixed; height follows the figure's aspect ratio.
+    y_offset_px adjusts placement without rescaling or redrawing the plot.
     """
     buffer = BytesIO()
     fig.savefig(buffer, format="svg", bbox_inches=None)
     svg_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
     html = (
         f'<div style="display:block; width:{width_px}px; max-width:none; '
-        f'margin:0; padding:0; line-height:0; overflow:visible;">'
+        f'margin-top:{y_offset_px}px; margin-right:0; margin-bottom:0; margin-left:0; '
+        f'padding:0; line-height:0; overflow:visible;">'
         f'<img alt="図形" src="data:image/svg+xml;base64,{svg_b64}" '
         f'style="display:block; width:{width_px}px !important; '
         f'max-width:none !important; height:auto !important; '
@@ -1125,7 +1127,7 @@ with tabA:
                     fig_a = draw_section("円形", h_design_a_mm, d_mm=d_a)
                 elif channel_type == "台形":
                     fig_a = draw_section("台形", h_design_a_mm, b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a)
-                render_figure_inline(fig_a, width_px=520)
+                render_figure_inline(fig_a, width_px=520, y_offset_px=-78)
                 plt.close(fig_a)
 
         with st.container(key="checkbox_zone"):
