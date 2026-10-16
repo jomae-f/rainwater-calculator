@@ -1055,7 +1055,7 @@ with tabA:
         h_m = h_design_a_mm / 1000.0
         Fr = V_max_a / ((g * h_m) ** 0.5) if h_m > 0.0 else 0.0
 
-        with st.container(height=396, border=True):
+        with st.container(height=480, border=True):
             use_modified_v_a = st.session_state.get("use_modified_v_a", False)
 
             if use_modified_v_a and Fr > 1.0:
