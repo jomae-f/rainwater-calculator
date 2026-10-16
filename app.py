@@ -1125,7 +1125,7 @@ with tabA:
                     fig_a = draw_section("円形", h_design_a_mm, d_mm=d_a)
                 elif channel_type == "台形":
                     fig_a = draw_section("台形", h_design_a_mm, b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a)
-                render_figure_inline(fig_a, width_px=480)
+                render_figure_inline(fig_a, width_px=540)
                 plt.close(fig_a)
 
         with st.container(key="checkbox_zone"):
