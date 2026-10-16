@@ -18,19 +18,18 @@ import streamlit as st
 
 
 def render_figure_inline(fig, width_px):
-    """Render a Matplotlib figure as an inline PNG, avoiding Streamlit's media URL.
+    """Render a Matplotlib figure as inline SVG, avoiding Streamlit's media URL.
 
-    The image width is fixed to preserve the intended layout; height follows the
-    original figure aspect ratio. st.html inserts this HTML in the page rather
-    than allocating a tall iframe.
+    SVG is vector-based, so lines and text remain sharp when the image is scaled.
+    The display width remains fixed; height follows the figure's aspect ratio.
     """
     buffer = BytesIO()
-    fig.savefig(buffer, format="png", dpi=fig.get_dpi())
-    png_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
+    fig.savefig(buffer, format="svg", bbox_inches=None)
+    svg_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
     html = (
         f'<div style="display:block; width:{width_px}px; max-width:none; '
         f'margin:0; padding:0; line-height:0; overflow:visible;">'
-        f'<img alt="図形" src="data:image/png;base64,{png_b64}" '
+        f'<img alt="図形" src="data:image/svg+xml;base64,{svg_b64}" '
         f'style="display:block; width:{width_px}px !important; '
         f'max-width:none !important; height:auto !important; '
         f'margin:0; padding:0; border:0;" />'
@@ -1055,7 +1054,7 @@ with tabA:
         h_m = h_design_a_mm / 1000.0
         Fr = V_max_a / ((g * h_m) ** 0.5) if h_m > 0.0 else 0.0
 
-        with st.container(height=480, border=True):
+        with st.container(height=396, border=True):
             use_modified_v_a = st.session_state.get("use_modified_v_a", False)
 
             if use_modified_v_a and Fr > 1.0:
@@ -1126,7 +1125,7 @@ with tabA:
                     fig_a = draw_section("円形", h_design_a_mm, d_mm=d_a)
                 elif channel_type == "台形":
                     fig_a = draw_section("台形", h_design_a_mm, b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a)
-                render_figure_inline(fig_a, width_px=480)
+                render_figure_inline(fig_a, width_px=260)
                 plt.close(fig_a)
 
         with st.container(key="checkbox_zone"):
@@ -1478,7 +1477,7 @@ with tabB:
             a_in_external=a_in_external,
             area_unit=area_unit
         )
-        render_figure_inline(fig, width_px=1080)
+        render_figure_inline(fig, width_px=840)
         plt.close(fig)
 
 # ====================================================
