@@ -630,7 +630,6 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
 # 3-2. 調整池・流域―概略図描画関数
 # ----------------------------------------------------
 def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, area_unit="㎡"):
-    st.write("DEBUG: 描画関数が呼ばれました") # ← これが画面に出るか確認
     # OSを判定して、それぞれの環境に最適なフォントを先頭にする
     os_name = platform.system()
     if os_name == "Windows":
@@ -820,7 +819,6 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
 
     # 上下左右の余白を限界までカット
     plt.tight_layout(pad=0.2)
-    st.write("DEBUG: 描画関数の最後まで到達しました") # ← これも出るか確認
     return fig
 
 # ====================================================
