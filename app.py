@@ -1478,7 +1478,7 @@ with tabB:
             a_in_external=a_in_external,
             area_unit=area_unit
         )
-        render_figure_inline(fig, width_px=840)
+        render_figure_inline(fig, width_px=1080)
         plt.close(fig)
 
 # ====================================================
