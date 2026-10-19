@@ -763,10 +763,16 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
 
 
     # 4. テキスト（前面）
-    # 流域面積ラベルは入力単位に合わせる。調整池内の数値は必要容量ではなく必要面積(m²)を表示する。
-    fmt = ',.4f' if area_unit == 'ha' else ',.2f'
+    # 概略図内の面積表記はすべて m2 に統一する。
+    # 入力単位が ha の場合は、区域内・区域外・直接放流の面積を m2 に換算して表示する。
+    area_scale = 10000.0 if area_unit == 'ha' else 1.0
+    display_a_in_internal = a_in_internal * area_scale
+    display_a_dir_internal = a_dir_internal * area_scale
+    display_a_in_external = a_in_external * area_scale
+    area_fmt = ',.2f'
     display_pond_area = pond_area_m2 if pond_area_m2 is not None else 0.0
     pond_fmt = ',.2f'
+    area_label_unit = 'm2'
     pond_unit = 'm2'
 
     ax.text(5.0, 0.6, '河川・水路', color='#0369a1', fontsize=10, fontweight='bold', ha='center', va='center', zorder=5)
@@ -788,22 +794,22 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
     if has_ext:
         ax.text(0.7, y_dev_top + height_ext - 0.25, '開発区域外', fontsize=10, fontweight='bold', color='#475569', va='center', zorder=5)
         text_ext_y = y_dev_top + height_ext / 2
-        ax.text(5.0, text_ext_y + 0.15, '調整池流入', fontsize=9, fontweight='bold', color='#475569', ha='center', va='center', zorder=5)
-        ax.text(5.0, text_ext_y - 0.15, f'{a_in_external:{fmt}} {area_unit}', fontsize=8.5, color='#334155', ha='center', va='center', zorder=5)
+        ax.text(5.0, text_ext_y + 0.15, '調整池流入', fontsize=9, fontweight='bold', color='#475569', ha='center', va='center', zorder=5, clip_on=False)
+        ax.text(5.0, text_ext_y - 0.15, f'{display_a_in_external:{area_fmt}} {area_label_unit}', fontsize=8.5, color='#334155', ha='center', va='center', zorder=5)
     
     # 開発区域の左上ラベル
     ax.text(0.7, y_dev_top - 0.25, '開発区域', fontsize=10, fontweight='bold', color='#0f172a', va='center', zorder=5)
     
     # 区域内流入（調整池流入）のテキスト
     in_cy = y_river_top + dev_height / 2
-    ax.text(0.5 + width_1 / 2, in_cy + 0.15, '調整池流入', fontsize=9, fontweight='bold', color='#166534', ha='center', va='center', zorder=5)
-    ax.text(0.5 + width_1 / 2, in_cy - 0.15, f'{a_in_internal:{fmt}} {area_unit}', fontsize=8.5, color='#14532d', ha='center', va='center', zorder=5)
+    ax.text(0.5 + width_1 / 2, in_cy + 0.15, '調整池流入', fontsize=8.5, fontweight='bold', color='#166534', ha='center', va='center', zorder=5, clip_on=False)
+    ax.text(0.5 + width_1 / 2, in_cy - 0.15, f'{display_a_in_internal:{area_fmt}} {area_label_unit}', fontsize=8.5, color='#14532d', ha='center', va='center', zorder=5)
 
     # 直接放流エリアのテキスト
     if has_dir and width_dir > 0:
         dir_cx = x_split + width_dir / 2
         ax.text(dir_cx, in_cy + 0.15, '直接放流', fontsize=9, fontweight='bold', color='#c2410c', ha='center', va='center', zorder=5)
-        ax.text(dir_cx, in_cy - 0.15, f'{a_dir_internal:{fmt}} {area_unit}', fontsize=8.5, color='#9a3412', ha='center', va='center', zorder=5)
+        ax.text(dir_cx, in_cy - 0.15, f'{display_a_dir_internal:{area_fmt}} {area_label_unit}', fontsize=8.5, color='#9a3412', ha='center', va='center', zorder=5)
 
     # 調整池テキスト（単位に連動）
     ax.text(0.5 + pond_width / 2, y_river_top + pond_height * 0.65, '調整池', fontsize=10.5, fontweight='bold', color='white', ha='center', va='center', zorder=5)
