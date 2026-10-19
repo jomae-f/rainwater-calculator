@@ -264,6 +264,73 @@ def convert_slope_a():
 
     st.session_state.prev_s_type_a = new_unit
 
+
+# タブAの水路形状・材質・粗度係数の対応表。
+MATERIAL_OPTIONS_A = {
+    "U形": {"コンクリート(二次製品)": 0.013, "土側溝": 0.025, "石積み側溝": 0.025},
+    "円形": {"塩ビ管": 0.010, "コルゲート管": 0.025},
+    "台形": {"コンクリート(現場打ち)": 0.015, "土側溝": 0.025, "石積み側溝": 0.025},
+}
+
+
+def handle_channel_type_change_a():
+    """水路形状の変更時、材質を有効な選択肢に合わせ、粗度係数を連動させる。"""
+    shape = st.session_state.get("channel_type_a", "U形")
+    choices = MATERIAL_OPTIONS_A[shape]
+    material = st.session_state.get("material_a")
+
+    # 変更後の形状で選べない材質なら、その形状の先頭の材質に切り替える。
+    if material not in choices:
+        material = next(iter(choices))
+        st.session_state["material_a"] = material
+
+    # 選択中の材質に対応する標準粗度係数に更新する。
+    st.session_state["n_input_a"] = choices[material]
+
+
+def update_n_a():
+    """材質を変更した場合、その材質の標準粗度係数に更新する。"""
+    shape = st.session_state.get("channel_type_a", "U形")
+    material = st.session_state.get("material_a")
+    choices = MATERIAL_OPTIONS_A[shape]
+    if material in choices:
+        st.session_state["n_input_a"] = choices[material]
+
+
+def validate_channel_dimensions(shape_type, *, w_mm=None, h_mm=None,
+                                w_bottom_mm=None, r_bottom_mm=None,
+                                b1_mm=None, b2_mm=None):
+    """水路寸法の不整合・描画上の制約を警告文として返す。計算自体は止めない。"""
+    warnings = []
+
+    if shape_type == "U形" and w_mm is not None and h_mm is not None:
+        if w_bottom_mm is not None and w_bottom_mm > w_mm:
+            warnings.append(
+                f"下幅 B2（{w_bottom_mm:g} mm）が水路幅 B（{w_mm:g} mm）を上回っています。"
+                "一般的なU形断面を想定しているため、幅の入力値を確認してください。"
+            )
+        elif (w_bottom_mm is not None and r_bottom_mm is not None
+              and r_bottom_mm > 0 and w_bottom_mm > 0):
+            dx = (w_mm - w_bottom_mm) / 2.0
+            alpha = math.atan2(h_mm, dx) if dx > 0 else (math.pi / 2.0)
+            tan_half = math.tan((math.pi - alpha) / 2.0)
+            max_r_for_drawing = (w_bottom_mm / 2.0) / tan_half if tan_half > 0 else float("inf")
+            if r_bottom_mm > max_r_for_drawing:
+                warnings.append(
+                    f"底面R（{r_bottom_mm:g} mm）が、この幅・深さで図形に反映できる目安"
+                    f"（約 {max_r_for_drawing:.0f} mm）を超えています。図ではRが制限される可能性があるため、"
+                    "水路幅・下幅・水路深・Rを確認してください。"
+                )
+
+    elif shape_type == "台形" and b1_mm is not None and b2_mm is not None:
+        if b2_mm > b1_mm:
+            warnings.append(
+                f"下幅 B2（{b2_mm:g} mm）が上幅 B1（{b1_mm:g} mm）を上回っています。"
+                "逆向きの台形断面を意図している場合を除き、幅の入力値を確認してください。"
+            )
+
+    return warnings
+
 # ====================================================
 # ■ 第2章：計算ロジック
 # ====================================================
@@ -896,20 +963,22 @@ with tabA:
         col_sub_left, col_sub_right = st.columns(2, gap="medium")
         
         with col_sub_left:
-            channel_type = st.selectbox("水路の形状", options=["U形", "円形", "台形"], key="channel_type_a")
+            channel_type = st.selectbox(
+                "水路の形状",
+                options=["U形", "円形", "台形"],
+                key="channel_type_a",
+                on_change=handle_channel_type_change_a,
+            )
             
         with col_sub_right:
-            material_options = {
-                "U形": {"コンクリート(二次製品)": 0.013, "土側溝": 0.025, "石積み側溝": 0.025},
-                "円形": {"塩ビ管": 0.010, "コルゲート管": 0.025},
-                "台形": {"コンクリート(現場打ち)": 0.015, "土側溝": 0.025, "石積み側溝": 0.025}
-            }
+            material_options = MATERIAL_OPTIONS_A
             available_materials = list(material_options[channel_type].keys())
-            
-            def update_n_a():
-                st.session_state.n_input_a = material_options[channel_type][st.session_state.material_a]
-
-            selected_material = st.selectbox("水路の種類", options=available_materials, key="material_a", on_change=update_n_a)
+            selected_material = st.selectbox(
+                "水路の種類",
+                options=available_materials,
+                key="material_a",
+                on_change=update_n_a,
+            )
             default_n = material_options[channel_type][selected_material]
             
         if channel_type == "U形":
@@ -949,6 +1018,27 @@ with tabA:
                 h_a = st.number_input("水路深 H (mm)", min_value=50, max_value=5000, value=300, step=50, key="h_a")
             with col_dim2_r:
                 st.empty()
+
+        # 入力寸法の整合性チェック（試作）。寸法入力のすぐ近くに警告を表示する。
+        if channel_type == "U形":
+            geometry_warnings_a = validate_channel_dimensions(
+                "U形", w_mm=w_a, h_mm=h_a,
+                w_bottom_mm=w_bottom_a, r_bottom_mm=r_bottom_a,
+            )
+        elif channel_type == "台形":
+            geometry_warnings_a = validate_channel_dimensions(
+                "台形", b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a,
+            )
+        else:
+            geometry_warnings_a = []
+
+        if geometry_warnings_a:
+            warning_text = "\n\n".join(f"• {message}" for message in geometry_warnings_a)
+            st.warning(
+                "入力寸法を確認してください。\n\n"
+                + warning_text
+                + "\n\n警告中も計算は継続します。寸法を確認するまでは、計算結果を参考値として扱ってください。"
+            )
 
         st.write("---") 
 
@@ -1029,7 +1119,15 @@ with tabA:
             if "n_input_a" not in st.session_state:
                 st.session_state.n_input_a = default_n
 
-            n_a = st.number_input("粗度係数 n", min_value=0.001, max_value=0.100, value=st.session_state.n_input_a, step=0.001, format="%.3f", key="n_input_a")
+            n_a = st.number_input(
+                "粗度係数 n",
+                min_value=0.001,
+                max_value=0.100,
+                value=st.session_state.n_input_a,
+                step=0.001,
+                format="%.3f",
+                key="n_input_a",
+            )
 
         col_sub_bottom_left, col_sub_bottom_right = st.columns(2, gap="medium")
         with col_sub_bottom_left:
