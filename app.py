@@ -273,26 +273,39 @@ MATERIAL_OPTIONS_A = {
 }
 
 
-def handle_channel_type_change_a():
-    """水路形状の変更時、材質を有効な選択肢に合わせ、粗度係数を連動させる。"""
-    shape = st.session_state.get("channel_type_a", "U形")
+# 形状ごとに材質ウィジェットのキーを分け、選択肢が切り替わる際の
+# ウィジェット状態の使い回しを避ける。
+MATERIAL_WIDGET_KEYS_A = {
+    "U形": "material_a_u",
+    "円形": "material_a_circle",
+    "台形": "material_a_trapezoid",
+}
+
+
+def _sync_roughness_for_shape_a(shape):
+    """指定した形状の材質選択と粗度係数を同期する。"""
     choices = MATERIAL_OPTIONS_A[shape]
-    material = st.session_state.get("material_a")
+    material_key = MATERIAL_WIDGET_KEYS_A[shape]
 
-    # 変更後の形状で選べない材質なら、その形状の先頭の材質に切り替える。
-    if material not in choices:
-        material = next(iter(choices))
-        st.session_state["material_a"] = material
+    # 形状ごとの材質選択を初期化。前に選んだ材質があれば維持する。
+    if material_key not in st.session_state or st.session_state[material_key] not in choices:
+        st.session_state[material_key] = next(iter(choices))
 
-    # 選択中の材質に対応する標準粗度係数に更新する。
-    st.session_state["n_input_a"] = choices[material]
+    st.session_state["n_input_a"] = choices[st.session_state[material_key]]
+
+
+def handle_channel_type_change_a():
+    """水路形状の変更時、その形状の材質選択と粗度係数を同期する。"""
+    shape = st.session_state.get("channel_type_a", "U形")
+    _sync_roughness_for_shape_a(shape)
 
 
 def update_n_a():
-    """材質を変更した場合、その材質の標準粗度係数に更新する。"""
+    """材質変更時、選択中の形状に対応する標準粗度係数へ更新する。"""
     shape = st.session_state.get("channel_type_a", "U形")
-    material = st.session_state.get("material_a")
     choices = MATERIAL_OPTIONS_A[shape]
+    material_key = MATERIAL_WIDGET_KEYS_A[shape]
+    material = st.session_state.get(material_key)
     if material in choices:
         st.session_state["n_input_a"] = choices[material]
 
@@ -973,14 +986,18 @@ with tabA:
         with col_sub_right:
             material_options = MATERIAL_OPTIONS_A
             available_materials = list(material_options[channel_type].keys())
+            material_widget_key = MATERIAL_WIDGET_KEYS_A[channel_type]
 
-            # 形状変更で選択肢が変わるセレクトボックスを固定プレースホルダー内に配置。
-            # 一時的に古い材質セレクトボックスが残って見える再描画を避ける。
-            material_selector_slot_a = st.empty()
-            selected_material = material_selector_slot_a.selectbox(
+            # ウィジェットキーを形状別にすることで、形状ごとに異なる選択肢を
+            # 同一のセレクトボックス状態へ差し替えることを避ける。
+            if (material_widget_key not in st.session_state
+                    or st.session_state[material_widget_key] not in available_materials):
+                st.session_state[material_widget_key] = available_materials[0]
+
+            selected_material = st.selectbox(
                 "水路の種類",
                 options=available_materials,
-                key="material_a",
+                key=material_widget_key,
                 on_change=update_n_a,
             )
             default_n = material_options[channel_type][selected_material]
