@@ -686,9 +686,10 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
         width_1 = max(2.5, min(7.8, 9.0 * r1))
         width_dir = 9.0 - width_1
 
-        # 概略図では直接放流エリアの幅を開発区域全体の50%以下に制限する。
+        # 概略図では直接放流エリアの幅を開発区域全体の40%以下に制限する。
+        # 開発区域の全幅は9.0なので、最大幅は9.0 * 0.40 = 3.6。
         # 直接放流面積が極端に大きくても、区域内流入ラベルの表示領域を確保する。
-        width_dir = min(width_dir, 4.5)
+        width_dir = min(width_dir, 3.6)
         width_1 = 9.0 - width_dir
     
     x_split = 0.5 + width_1  # 境界のx座標
