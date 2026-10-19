@@ -21,17 +21,14 @@ def render_figure_inline(fig, width_px, y_offset_px=0, tight_crop=False):
     """Render a Matplotlib figure as inline SVG, avoiding Streamlit's media URL.
 
     SVG is vector-based, so lines and text remain sharp when the image is scaled.
-    If tight_crop=True, trim the figure's large blank canvas margins around artists.
-    y_offset_px adjusts the placement of the resulting image element.
+    The full figure canvas is retained so its intrinsic width/height do not change
+    when the channel cross-section becomes taller or wider. This keeps the fixed
+    result card from gaining a scrollbar and changing the status band's width.
+    ``tight_crop`` is retained for call-site compatibility; section figures use a
+    deliberately sized canvas instead of data-dependent cropping.
     """
     buffer = BytesIO()
-    if tight_crop:
-        # Crop the unused canvas around the plot so its white/blank margin does not
-        # extend upward into the green status banner. A tiny pad protects labels/arrows.
-        fig.savefig(buffer, format="svg", bbox_inches="tight", pad_inches=0.02)
-    else:
-        # Keep the existing framing for other diagrams unless explicitly requested.
-        fig.savefig(buffer, format="svg", bbox_inches=None)
+    fig.savefig(buffer, format="svg", bbox_inches=None)
     svg_b64 = base64.b64encode(buffer.getvalue()).decode("ascii")
     html = (
         f'<div style="display:block; width:{width_px}px; max-width:none; '
@@ -437,7 +434,9 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
     # 1. 共通プロット設定・ヘルパー関数定義
     plt.close('all')
 
-    fig, ax = plt.subplots(figsize=(5, 5))
+    # Fixed 500×318 SVG canvas: aspect ratio closely matches the fixed axes limits
+    # (x span 2.2 / y span 1.4), so all section types occupy a stable layout box.
+    fig, ax = plt.subplots(figsize=(5, 3.18))
     ax.set_aspect('equal', adjustable='box')
     ax.axis('off')
     ax.set_xlim(-1.1, 1.1)
