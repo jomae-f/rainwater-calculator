@@ -1429,7 +1429,7 @@ with tabA:
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if st.button("📥 現在の流入雨水量を記憶する"):
-                st.session_state["upstream_Q"] = Q_in_a
+                st.session_state["upstream_Q"] = st.session_state.get("upstream_Q", 0.0) + Q_in_a
                 st.rerun()
                 
         with col_btn2:
