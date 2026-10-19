@@ -17,58 +17,6 @@ import numpy as np
 import streamlit as st
 
 
-def render_judgment_status(status_key):
-    """Render consistent vector icons for the four judgment states."""
-    statuses = {
-        "flow": {
-            "label": "流れます",
-            "foreground": "#166534",
-            "background": "#eaf7ee",
-            "border": "#b7e4c7",
-            "icon": '<circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/>',
-        },
-        "borderline": {
-            "label": "ぎりぎりです",
-            "foreground": "#854d0e",
-            "background": "#fff8e6",
-            "border": "#f4d58d",
-            # Simple outlined triangle, intentionally different from the dimensions warning.
-            "icon": '<path d="M12 3.5 21 20.5H3Z"/>',
-        },
-        "overflow": {
-            "label": "あふれます",
-            "foreground": "#991b1b",
-            "background": "#fef0f0",
-            "border": "#fecaca",
-            "icon": '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6M15 9l-6 6"/>',
-        },
-        "dimensions": {
-            "label": "寸法を確認してください",
-            "foreground": "#9a3412",
-            "background": "#fff3e5",
-            "border": "#fdba74",
-            # Warning triangle with an exclamation point.
-            "icon": '<path d="M12 3 22 20.5H2Z"/><path d="M12 9v5M12 17.3h.01"/>',
-        },
-    }
-    status = statuses[status_key]
-    icon_svg = (
-        f'<svg aria-hidden="true" viewBox="0 0 24 24" width="28" height="28" '
-        f'fill="none" stroke="{status["foreground"]}" stroke-width="2" '
-        f'stroke-linecap="round" stroke-linejoin="round" '
-        f'style="display:block;flex:0 0 28px">{status["icon"]}</svg>'
-    )
-    st.markdown(
-        f'<div role="status" style="display:flex;align-items:center;gap:12px;'
-        f'box-sizing:border-box;width:100%;padding:12px 16px;margin:0 0 8px 0;'
-        f'border:1px solid {status["border"]};border-radius:8px;'
-        f'background:{status["background"]};color:{status["foreground"]};">'
-        f'{icon_svg}<span style="font-size:22px;font-weight:700;line-height:1.3;">'
-        f'{status["label"]}</span></div>',
-        unsafe_allow_html=True,
-    )
-
-
 def render_figure_inline(fig, width_px, y_offset_px=0, tight_crop=False):
     """Render a Matplotlib figure as inline SVG, avoiding Streamlit's media URL.
 
@@ -1276,16 +1224,12 @@ with tabA:
             # 寸法に不整合がある場合は、流下能力の判定より先に確認を促す。
             # 計算値は参考表示として残すが、「流れます」と誤認させない。
             if geometry_warnings_a:
-                # 寸法確認カードは従来のベクターアイコン表示を維持。
-                render_judgment_status("dimensions")
+                st.warning("## ⚠️ 寸法を確認してください")
             elif margin_ratio >= 120.0:
-                # 「流れます」は元のStreamlit標準表示を維持。
                 st.success("## ⭕ 流れます")
             elif 100.0 <= margin_ratio < 120.0:
-                # 「ぎりぎりです」だけ、SVGの三角形アイコンを使う。
-                render_judgment_status("borderline")
+                st.warning("## △ ぎりぎりです")
             else:
-                # 「あふれます」は元のStreamlit標準表示を維持。
                 st.error("## ❌ あふれます")
 
             col_res_left, col_res_right = st.columns([1.2, 1.0])
