@@ -763,17 +763,23 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
 
 
     # 4. テキスト（前面）
-    # 概略図内の面積表記はすべて m2 に統一する。
-    # 入力単位が ha の場合は、区域内・区域外・直接放流の面積を m2 に換算して表示する。
-    area_scale = 10000.0 if area_unit == 'ha' else 1.0
-    display_a_in_internal = a_in_internal * area_scale
-    display_a_dir_internal = a_dir_internal * area_scale
-    display_a_in_external = a_in_external * area_scale
-    area_fmt = ',.2f'
-    display_pond_area = pond_area_m2 if pond_area_m2 is not None else 0.0
-    pond_fmt = ',.2f'
-    area_label_unit = 'm2'
-    pond_unit = 'm2'
+    # 面積表示は入力単位に連動させる。
+    # 入力単位が ha の場合は ha の値・表記を維持し、平方メートルの場合は m2 と表示する。
+    display_a_in_internal = a_in_internal
+    display_a_dir_internal = a_dir_internal
+    display_a_in_external = a_in_external
+    area_fmt = ',.4f' if area_unit == 'ha' else ',.2f'
+    area_label_unit = 'ha' if area_unit == 'ha' else 'm2'
+
+    # pond_area_m2 は常に m2 で渡されるため、入力単位が ha のときだけ ha に換算する。
+    if pond_area_m2 is None:
+        display_pond_area = 0.0
+    elif area_unit == 'ha':
+        display_pond_area = pond_area_m2 / 10000.0
+    else:
+        display_pond_area = pond_area_m2
+    pond_fmt = area_fmt
+    pond_unit = area_label_unit
 
     ax.text(5.0, 0.6, '河川・水路', color='#0369a1', fontsize=10, fontweight='bold', ha='center', va='center', zorder=5)
     
