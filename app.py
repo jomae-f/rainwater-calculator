@@ -1228,7 +1228,7 @@ with tabA:
             elif margin_ratio >= 120.0:
                 st.success("## ⭕ 流れます")
             elif 100.0 <= margin_ratio < 120.0:
-                st.warning("## 🔺 ぎりぎりです")
+                st.warning("## ぎりぎりです", icon="🔺")
             else:
                 st.error("## ❌ あふれます")
 
