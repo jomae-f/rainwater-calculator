@@ -658,7 +658,7 @@ def draw_section(shape_type, h_design_mm, w_mm=None, h_mm=None, w_bottom_mm=None
 # ----------------------------------------------------
 # 3-2. 調整池・流域―概略図描画関数
 # ----------------------------------------------------
-def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, area_unit="㎡"):
+def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, area_unit="㎡", pond_area_m2=None):
     # OSを判定して、それぞれの環境に最適なフォントを先頭にする
     os_name = platform.system()
     if os_name == "Windows":
@@ -763,17 +763,11 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
 
 
     # 4. テキスト（前面）
-    # 単位に応じて表示桁数や換算を定義
+    # 流域面積ラベルは入力単位に合わせる。調整池内の数値は必要容量ではなく必要面積(m²)を表示する。
     fmt = ',.4f' if area_unit == 'ha' else ',.2f'
-
-    if area_unit == 'ha':
-        display_pond_area = v_req / 10000.0  # m2 から ha に換算
-        pond_fmt = ',.4f'
-        pond_unit = 'ha'
-    else:
-        display_pond_area = v_req
-        pond_fmt = ',.2f'
-        pond_unit = 'm2'
+    display_pond_area = pond_area_m2 if pond_area_m2 is not None else 0.0
+    pond_fmt = ',.2f'
+    pond_unit = 'm²'
 
     ax.text(5.0, 0.6, '河川・水路', color='#0369a1', fontsize=10, fontweight='bold', ha='center', va='center', zorder=5)
     
@@ -1482,7 +1476,8 @@ with tabB:
             a_in_internal=a_in_internal,
             a_dir_internal=a_dir_internal,
             a_in_external=a_in_external,
-            area_unit=area_unit
+            area_unit=area_unit,
+            pond_area_m2=calc_area
         )
         render_figure_inline(fig, width_px=1080)
         plt.close(fig)
