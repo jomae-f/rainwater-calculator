@@ -1224,11 +1224,11 @@ with tabA:
             # 寸法に不整合がある場合は、流下能力の判定より先に確認を促す。
             # 計算値は参考表示として残すが、「流れます」と誤認させない。
             if geometry_warnings_a:
-                st.warning("## ⚠️ 寸法を確認してください")
+                st.info("## ⚠️ 寸法を確認してください")
             elif margin_ratio >= 120.0:
                 st.success("## ⭕ 流れます")
             elif 100.0 <= margin_ratio < 120.0:
-                st.warning("## △ ぎりぎりです")
+                st.warning("## 🔺 ぎりぎりです")
             else:
                 st.error("## ❌ あふれます")
 
