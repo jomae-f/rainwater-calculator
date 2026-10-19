@@ -1058,15 +1058,15 @@ with tabA:
                     <div style="
                         position:relative;
                         display:inline-block;
-                        margin:7px 0 3px 2px;
-                        padding:7px 12px;
+                        margin:8px 0 4px 2px;
+                        padding:9px 15px;
                         background:#fff7ed;
                         border:1px solid #fdba74;
-                        border-radius:10px;
+                        border-radius:11px;
                         color:#9a3412;
-                        font-size:14px;
+                        font-size:16px;
                         font-weight:600;
-                        line-height:1.35;
+                        line-height:1.4;
                         box-sizing:border-box;
                     ">
                         <span style="
