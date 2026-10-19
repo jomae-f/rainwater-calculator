@@ -681,9 +681,15 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
         width_1 = 9.0
         width_dir = 0.0
     else:
+        # まず従来どおり面積比から区域内流入の幅を算出する。
         r1 = a_in_internal / total_inner
         width_1 = max(2.5, min(7.8, 9.0 * r1))
         width_dir = 9.0 - width_1
+
+        # 概略図では直接放流エリアの幅を開発区域全体の50%以下に制限する。
+        # 直接放流面積が極端に大きくても、区域内流入ラベルの表示領域を確保する。
+        width_dir = min(width_dir, 4.5)
+        width_1 = 9.0 - width_dir
     
     x_split = 0.5 + width_1  # 境界のx座標
 
@@ -800,22 +806,22 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
     if has_ext:
         ax.text(0.7, y_dev_top + height_ext - 0.25, '開発区域外', fontsize=10, fontweight='bold', color='#475569', va='center', zorder=5)
         text_ext_y = y_dev_top + height_ext / 2
-        ax.text(5.0, text_ext_y + 0.15, '調整池流入', fontsize=9, fontweight='bold', color='#475569', ha='center', va='center', zorder=5, clip_on=False)
-        ax.text(5.0, text_ext_y - 0.15, f'{display_a_in_external:{area_fmt}} {area_label_unit}', fontsize=8.5, color='#334155', ha='center', va='center', zorder=5)
+        ax.text(5.0, text_ext_y + 0.15, '調整池流入', fontsize=9.5, fontweight='bold', color='#475569', ha='center', va='center', zorder=5, clip_on=False)
+        ax.text(5.0, text_ext_y - 0.15, f'{display_a_in_external:{area_fmt}} {area_label_unit}', fontsize=9, color='#334155', ha='center', va='center', zorder=5)
     
     # 開発区域の左上ラベル
     ax.text(0.7, y_dev_top - 0.25, '開発区域', fontsize=10, fontweight='bold', color='#0f172a', va='center', zorder=5)
     
     # 区域内流入（調整池流入）のテキスト
     in_cy = y_river_top + dev_height / 2
-    ax.text(0.5 + width_1 / 2, in_cy + 0.15, '調整池流入', fontsize=8.5, fontweight='bold', color='#166534', ha='center', va='center', zorder=5, clip_on=False)
-    ax.text(0.5 + width_1 / 2, in_cy - 0.15, f'{display_a_in_internal:{area_fmt}} {area_label_unit}', fontsize=8.5, color='#14532d', ha='center', va='center', zorder=5)
+    ax.text(0.5 + width_1 / 2, in_cy + 0.15, '調整池流入', fontsize=9.5, fontweight='bold', color='#166534', ha='center', va='center', zorder=5, clip_on=False)
+    ax.text(0.5 + width_1 / 2, in_cy - 0.15, f'{display_a_in_internal:{area_fmt}} {area_label_unit}', fontsize=9, color='#14532d', ha='center', va='center', zorder=5)
 
     # 直接放流エリアのテキスト
     if has_dir and width_dir > 0:
         dir_cx = x_split + width_dir / 2
-        ax.text(dir_cx, in_cy + 0.15, '直接放流', fontsize=9, fontweight='bold', color='#c2410c', ha='center', va='center', zorder=5)
-        ax.text(dir_cx, in_cy - 0.15, f'{display_a_dir_internal:{area_fmt}} {area_label_unit}', fontsize=8.5, color='#9a3412', ha='center', va='center', zorder=5)
+        ax.text(dir_cx, in_cy + 0.15, '直接放流', fontsize=9.5, fontweight='bold', color='#c2410c', ha='center', va='center', zorder=5)
+        ax.text(dir_cx, in_cy - 0.15, f'{display_a_dir_internal:{area_fmt}} {area_label_unit}', fontsize=9, color='#9a3412', ha='center', va='center', zorder=5)
 
     # 調整池テキスト（単位に連動）
     ax.text(0.5 + pond_width / 2, y_river_top + pond_height * 0.65, '調整池', fontsize=10.5, fontweight='bold', color='white', ha='center', va='center', zorder=5)
