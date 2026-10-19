@@ -273,39 +273,12 @@ MATERIAL_OPTIONS_A = {
 }
 
 
-# 形状ごとに材質ウィジェットのキーを分け、選択肢が切り替わる際の
-# ウィジェット状態の使い回しを避ける。
-MATERIAL_WIDGET_KEYS_A = {
-    "U形": "material_a_u",
-    "円形": "material_a_circle",
-    "台形": "material_a_trapezoid",
-}
-
-
-def _sync_roughness_for_shape_a(shape):
-    """指定した形状の材質選択と粗度係数を同期する。"""
-    choices = MATERIAL_OPTIONS_A[shape]
-    material_key = MATERIAL_WIDGET_KEYS_A[shape]
-
-    # 形状ごとの材質選択を初期化。前に選んだ材質があれば維持する。
-    if material_key not in st.session_state or st.session_state[material_key] not in choices:
-        st.session_state[material_key] = next(iter(choices))
-
-    st.session_state["n_input_a"] = choices[st.session_state[material_key]]
-
-
-def handle_channel_type_change_a():
-    """水路形状の変更時、その形状の材質選択と粗度係数を同期する。"""
-    shape = st.session_state.get("channel_type_a", "U形")
-    _sync_roughness_for_shape_a(shape)
-
 
 def update_n_a():
-    """材質変更時、選択中の形状に対応する標準粗度係数へ更新する。"""
+    """材質を変更した場合、その材質の標準粗度係数に更新する。"""
     shape = st.session_state.get("channel_type_a", "U形")
+    material = st.session_state.get("material_a")
     choices = MATERIAL_OPTIONS_A[shape]
-    material_key = MATERIAL_WIDGET_KEYS_A[shape]
-    material = st.session_state.get(material_key)
     if material in choices:
         st.session_state["n_input_a"] = choices[material]
 
@@ -976,28 +949,39 @@ with tabA:
         col_sub_left, col_sub_right = st.columns(2, gap="medium")
         
         with col_sub_left:
+            # 形状選択は従来どおりの通常再実行に任せ、on_change で
+            # 別ウィジェットの状態を直接変更しない（切替時の一瞬の旧表示を避ける狙い）。
             channel_type = st.selectbox(
                 "水路の形状",
                 options=["U形", "円形", "台形"],
                 key="channel_type_a",
-                on_change=handle_channel_type_change_a,
             )
             
         with col_sub_right:
             material_options = MATERIAL_OPTIONS_A
             available_materials = list(material_options[channel_type].keys())
-            material_widget_key = MATERIAL_WIDGET_KEYS_A[channel_type]
 
-            # ウィジェットキーを形状別にすることで、形状ごとに異なる選択肢を
-            # 同一のセレクトボックス状態へ差し替えることを避ける。
-            if (material_widget_key not in st.session_state
-                    or st.session_state[material_widget_key] not in available_materials):
-                st.session_state[material_widget_key] = available_materials[0]
+            # 形状変更後、材質ウィジェットを描画する前に選択状態を整える。
+            # 形状変更用コールバックで別ウィジェットのキーを変更しないことで、
+            # 元のStreamlit標準の画面更新に戻し、粗度係数の連動だけを維持する。
+            previous_shape = st.session_state.get("_last_channel_type_a")
+            shape_changed = previous_shape is not None and previous_shape != channel_type
+            current_material = st.session_state.get("material_a")
+
+            if current_material not in available_materials:
+                current_material = available_materials[0]
+                st.session_state["material_a"] = current_material
+                st.session_state["n_input_a"] = material_options[channel_type][current_material]
+            elif shape_changed:
+                # 新しい形状でも選べる材質なら選択を維持し、粗度係数を標準値に同期。
+                st.session_state["n_input_a"] = material_options[channel_type][current_material]
+
+            st.session_state["_last_channel_type_a"] = channel_type
 
             selected_material = st.selectbox(
                 "水路の種類",
                 options=available_materials,
-                key=material_widget_key,
+                key="material_a",
                 on_change=update_n_a,
             )
             default_n = material_options[channel_type][selected_material]
