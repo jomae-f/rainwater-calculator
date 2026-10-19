@@ -17,6 +17,44 @@ import numpy as np
 import streamlit as st
 
 
+def render_judgment_status(status):
+    """判定結果3種類だけを、統一サイズのSVGアイコンで表示する。"""
+    # 背景色と文字の雰囲気は既存の判定表示に合わせ、3種類のアイコンだけを
+    # 同じサイズ・線幅のSVGとして描画する。
+    styles = {
+        "flow": {
+            "label": "流れます",
+            "background": "#e8f8ee",
+            "text": "#187844",
+            "icon": '<circle cx="16" cy="16" r="11.5" fill="none" stroke="currentColor" stroke-width="3"/>',
+        },
+        "borderline": {
+            "label": "ぎりぎりです",
+            "background": "#fff7db",
+            "text": "#8a5a00",
+            "icon": '<path d="M16 4.5 L28 26.5 H4 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>',
+        },
+        "overflow": {
+            "label": "あふれます",
+            "background": "#fdecec",
+            "text": "#b42318",
+            "icon": '<path d="M7 7 L25 25 M25 7 L7 25" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>',
+        },
+    }
+    item = styles[status]
+    html = (
+        f'<div style="display:flex; align-items:center; box-sizing:border-box; width:100%; '
+        f'min-height:76px; padding:12px 18px; gap:14px; border-radius:8px; '
+        f'background:{item["background"]}; color:{item["text"]}; margin:0;">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="38" height="38" '
+        f'style="display:block; flex:0 0 38px; color:{item["text"]};" aria-hidden="true">'
+        f'{item["icon"]}</svg>'
+        f'<div style="font-family:inherit; font-size:32px; font-weight:700; '
+        f'line-height:1.25; margin:0; padding:0;">{item["label"]}</div></div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
 def render_figure_inline(fig, width_px, y_offset_px=0, tight_crop=False):
     """Render a Matplotlib figure as inline SVG, avoiding Streamlit's media URL.
 
@@ -1226,11 +1264,11 @@ with tabA:
             if geometry_warnings_a:
                 st.info("## ⚠️ 寸法を確認してください")
             elif margin_ratio >= 120.0:
-                st.success("## ⭕ 流れます")
+                render_judgment_status("flow")
             elif 100.0 <= margin_ratio < 120.0:
-                st.warning("## 🔺 ぎりぎりです")
+                render_judgment_status("borderline")
             else:
-                st.error("## ❌ あふれます")
+                render_judgment_status("overflow")
 
             col_res_left, col_res_right = st.columns([1.2, 1.0])
             
