@@ -44,12 +44,12 @@ def render_judgment_status(status):
     item = styles[status]
     html = (
         f'<div style="display:flex; align-items:center; box-sizing:border-box; width:100%; '
-        f'padding:28px 18px; gap:14px; border-radius:8px; '
+        f'padding:23px 18px; gap:14px; border-radius:8px; '
         f'background:{item["background"]}; color:{item["text"]}; margin:0 0 12px 0;">'
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="38" height="38" '
         f'style="display:block; flex:0 0 38px; color:{item["text"]};" aria-hidden="true">'
         f'{item["icon"]}</svg>'
-        f'<div style="font-family:inherit; font-size:35px; font-weight:700; '
+        f'<div style="font-family:inherit; font-size:37px; font-weight:700; '
         f'line-height:1.25; margin:0; padding:0;">{item["label"]}</div></div>'
     )
     st.markdown(html, unsafe_allow_html=True)
