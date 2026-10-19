@@ -60,6 +60,15 @@ st.markdown("""
         margin-bottom: 8px !important;
     }
 
+    /* Tab A: 流域面積・勾配の独自見出しは、通常のウィジェットラベルと同じ間隔にする */
+    div[data-testid="stWidgetLabel"].compact-field-heading p {
+        margin-bottom: 0 !important;
+    }
+    .st-key-area_a_controls_row,
+    .st-key-slope_a_controls_row {
+        margin-top: -8px !important;
+    }
+
     /* Press Enter to apply を非表示にする */
     div[data-testid="InputInstructions"] {
         display: none !important;
@@ -945,8 +954,8 @@ with tabA:
 
         col_mid_left, col_mid_right = st.columns(2, gap="medium")
         with col_mid_left:
-            st.markdown('<div data-testid="stWidgetLabel"><p>流域面積 A</p></div>', unsafe_allow_html=True)
-            with st.container():
+            st.markdown('<div data-testid="stWidgetLabel" class="compact-field-heading"><p>流域面積 A</p></div>', unsafe_allow_html=True)
+            with st.container(key="area_a_controls_row"):
                 st.markdown('<div class="compact-row-container">', unsafe_allow_html=True)
                 col_a_val, col_a_unit = st.columns([7, 3])
                 
@@ -980,8 +989,8 @@ with tabA:
             I_a = st.number_input("降雨強度 I (mm/h)", min_value=0.0, max_value=300.0, value=119.0, step=1.0, key="I_a")
 
         with col_mid_right:
-            st.markdown('<div data-testid="stWidgetLabel"><p>勾配</p></div>', unsafe_allow_html=True)
-            with st.container():
+            st.markdown('<div data-testid="stWidgetLabel" class="compact-field-heading"><p>勾配</p></div>', unsafe_allow_html=True)
+            with st.container(key="slope_a_controls_row"):
                 st.markdown('<div class="compact-row-container">', unsafe_allow_html=True)
                 col_s_val, col_s_unit = st.columns([7, 3])
                 
