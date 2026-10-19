@@ -701,9 +701,11 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
 
     # 区域外エリアの高さと、グラフ全体の縦の上限 (top_limit)
     if has_ext:
-        # 区域外エリアの高さは、開発区域の高さと常に1:1にする。
-        # 開発区域の高さが変わった場合も同じ高さになるよう dev_height を使用。
-        height_ext = dev_height
+        total_all = total_inner + a_in_external
+        ext_ratio = a_in_external / total_all if total_all > 0 else 0.0
+        # 従来どおり最小高さ0.8から入力面積比に応じて高さを増やす。
+        # 変更点は上限のみ：開発区域と同じ高さ（1:1）まで許容する。
+        height_ext = max(0.8, min(dev_height, 0.8 + 2.0 * ext_ratio))
         y_ext_top = y_dev_top + height_ext
         top_limit = y_ext_top + 0.3
     else:
