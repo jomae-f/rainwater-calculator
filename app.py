@@ -44,7 +44,7 @@ def render_judgment_status(status):
     item = styles[status]
     html = (
         f'<div style="display:flex; align-items:center; box-sizing:border-box; width:100%; '
-        f'padding:36px 18px; gap:14px; border-radius:8px; '
+        f'padding:28px 18px; gap:14px; border-radius:8px; '
         f'background:{item["background"]}; color:{item["text"]}; margin:0 0 12px 0;">'
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="38" height="38" '
         f'style="display:block; flex:0 0 38px; color:{item["text"]};" aria-hidden="true">'
