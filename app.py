@@ -703,7 +703,11 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
     if has_ext:
         total_all = total_inner + a_in_external
         ext_ratio = a_in_external / total_all if total_all > 0 else 0.0
-        height_ext = max(0.8, min(2.5, 0.8 + 2.0 * ext_ratio))
+        # 概略図では区域外エリアの表示面積も開発区域の40%以下に制限する。
+        # 開発区域の幅は9.0、高さは3.0なので、区域外エリアの最大高さは
+        # (9.0 * 3.0 * 0.40) / 9.0 = 1.2。
+        # 既存の最小高さ0.8は維持し、入力面積が大きくなっても1.2を超えない。
+        height_ext = max(0.8, min(1.2, 0.8 + 2.0 * ext_ratio))
         y_ext_top = y_dev_top + height_ext
         top_limit = y_ext_top + 0.3
     else:
