@@ -1052,12 +1052,37 @@ with tabA:
                 geometry_warnings_a = []
 
             if geometry_warnings_a:
-                warning_text = "\n\n".join(f"• {message}" for message in geometry_warnings_a)
-                st.warning(
-                    "入力寸法を確認してください。\n\n"
-                    + warning_text
-                    + "\n\n警告中も計算は継続します。寸法を確認するまでは、計算結果を参考値として扱ってください。"
-                )
+                # 詳細な説明を並べず、短い吹き出し型の警告に統一する。
+                # 寸法の検出ロジックはそのまま維持し、計算も従来どおり継続する。
+                st.html("""
+                    <div style="
+                        position:relative;
+                        display:inline-block;
+                        margin:7px 0 3px 2px;
+                        padding:7px 12px;
+                        background:#fff7ed;
+                        border:1px solid #fdba74;
+                        border-radius:10px;
+                        color:#9a3412;
+                        font-size:14px;
+                        font-weight:600;
+                        line-height:1.35;
+                        box-sizing:border-box;
+                    ">
+                        <span style="
+                            position:absolute;
+                            top:-6px;
+                            left:18px;
+                            width:10px;
+                            height:10px;
+                            background:#fff7ed;
+                            border-top:1px solid #fdba74;
+                            border-left:1px solid #fdba74;
+                            transform:rotate(45deg);
+                        "></span>
+                        ⚠ 寸法を確認してください
+                    </div>
+                """)
 
         st.write("---") 
 
