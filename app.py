@@ -973,7 +973,11 @@ with tabA:
         with col_sub_right:
             material_options = MATERIAL_OPTIONS_A
             available_materials = list(material_options[channel_type].keys())
-            selected_material = st.selectbox(
+
+            # 形状変更で選択肢が変わるセレクトボックスを固定プレースホルダー内に配置。
+            # 一時的に古い材質セレクトボックスが残って見える再描画を避ける。
+            material_selector_slot_a = st.empty()
+            selected_material = material_selector_slot_a.selectbox(
                 "水路の種類",
                 options=available_materials,
                 key="material_a",
