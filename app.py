@@ -996,64 +996,68 @@ with tabA:
                 st.session_state["n_input_a"] = default_n
             st.session_state["_last_channel_type_a"] = channel_type
             
-        if channel_type == "U形":
-            col_dim_l, col_dim_r = st.columns(2, gap="medium")
-            with col_dim_l:
-                w_a = st.number_input("水路幅 B (mm)", min_value=50, max_value=5000, value=300, step=50, key="w_a")
-            with col_dim_r:
-                h_a = st.number_input("水路深 H (mm)", min_value=50, max_value=5000, value=300, step=50, key="h_a")
+        # 形状によって子要素数が変わっても、後続UIの配置パスが変わらないよう、
+        # 寸法入力とその警告を1つの固定プレースホルダー内にまとめる。
+        shape_dimensions_placeholder = st.empty()
+        with shape_dimensions_placeholder.container():
+            if channel_type == "U形":
+                col_dim_l, col_dim_r = st.columns(2, gap="medium")
+                with col_dim_l:
+                    w_a = st.number_input("水路幅 B (mm)", min_value=50, max_value=5000, value=300, step=50, key="w_a")
+                with col_dim_r:
+                    h_a = st.number_input("水路深 H (mm)", min_value=50, max_value=5000, value=300, step=50, key="h_a")
             
-            show_detail = st.checkbox("詳細設定（下幅・底面Rを指定する）", value=False, key="show_detail_a")
-            if show_detail:
-                col_opt_l, col_opt_r = st.columns(2, gap="medium")
-                with col_opt_l:
-                    w_bottom_a = st.number_input("下幅 B2 (mm) ", min_value=50, max_value=5000, value=260, step=10, key="w_bottom_a")
-                with col_opt_r:
-                    r_bottom_a = st.number_input("底面角 R (mm) ", min_value=0, max_value=500, value=50, step=5, key="r_bottom_a")
-            else:
-                w_bottom_a, r_bottom_a = None, None
+                show_detail = st.checkbox("詳細設定（下幅・底面Rを指定する）", value=False, key="show_detail_a")
+                if show_detail:
+                    col_opt_l, col_opt_r = st.columns(2, gap="medium")
+                    with col_opt_l:
+                        w_bottom_a = st.number_input("下幅 B2 (mm) ", min_value=50, max_value=5000, value=260, step=10, key="w_bottom_a")
+                    with col_opt_r:
+                        r_bottom_a = st.number_input("底面角 R (mm) ", min_value=0, max_value=500, value=50, step=5, key="r_bottom_a")
+                else:
+                    w_bottom_a, r_bottom_a = None, None
                 
-        elif channel_type == "円形":
-            col_dim_l, col_dim_r = st.columns(2, gap="medium")
-            with col_dim_l:
-                d_a = st.number_input("管径 D (mm)", min_value=50, max_value=5000, value=300, step=50, key="d_a")
-                w_a, h_a = d_a, d_a
-            with col_dim_r:
-                st.empty()
+            elif channel_type == "円形":
+                col_dim_l, col_dim_r = st.columns(2, gap="medium")
+                with col_dim_l:
+                    d_a = st.number_input("管径 D (mm)", min_value=50, max_value=5000, value=300, step=50, key="d_a")
+                    w_a, h_a = d_a, d_a
+                with col_dim_r:
+                    st.empty()
 
-        elif channel_type == "台形":
-            col_dim_l, col_dim_r = st.columns(2, gap="medium")
-            with col_dim_l:
-                b1_a = st.number_input("上幅 B1 (mm)", min_value=50, max_value=5000, value=400, step=50, key="b1_a")
-            with col_dim_r:
-                b2_a = st.number_input("下幅 B2 (mm)", min_value=50, max_value=5000, value=300, step=50, key="b2_a")
+            elif channel_type == "台形":
+                col_dim_l, col_dim_r = st.columns(2, gap="medium")
+                with col_dim_l:
+                    b1_a = st.number_input("上幅 B1 (mm)", min_value=50, max_value=5000, value=400, step=50, key="b1_a")
+                with col_dim_r:
+                    b2_a = st.number_input("下幅 B2 (mm)", min_value=50, max_value=5000, value=300, step=50, key="b2_a")
             
-            col_dim2_l, col_dim2_r = st.columns(2, gap="medium")
-            with col_dim2_l:
-                h_a = st.number_input("水路深 H (mm)", min_value=50, max_value=5000, value=300, step=50, key="h_a")
-            with col_dim2_r:
-                st.empty()
+                col_dim2_l, col_dim2_r = st.columns(2, gap="medium")
+                with col_dim2_l:
+                    h_a = st.number_input("水路深 H (mm)", min_value=50, max_value=5000, value=300, step=50, key="h_a")
+                with col_dim2_r:
+                    st.empty()
 
-        # 入力寸法の整合性チェック（試作）。寸法入力のすぐ近くに警告を表示する。
-        if channel_type == "U形":
-            geometry_warnings_a = validate_channel_dimensions(
-                "U形", w_mm=w_a, h_mm=h_a,
-                w_bottom_mm=w_bottom_a, r_bottom_mm=r_bottom_a,
-            )
-        elif channel_type == "台形":
-            geometry_warnings_a = validate_channel_dimensions(
-                "台形", b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a,
-            )
-        else:
-            geometry_warnings_a = []
+            # 入力寸法の整合性チェック（試作）。寸法入力のすぐ近くに警告を表示する。
+            if channel_type == "U形":
+                geometry_warnings_a = validate_channel_dimensions(
+                    "U形", w_mm=w_a, h_mm=h_a,
+                    w_bottom_mm=w_bottom_a, r_bottom_mm=r_bottom_a,
+                )
+            elif channel_type == "台形":
+                geometry_warnings_a = validate_channel_dimensions(
+                    "台形", b1_mm=b1_a, b2_mm=b2_a, h_mm=h_a,
+                )
+            else:
+                geometry_warnings_a = []
 
-        if geometry_warnings_a:
-            warning_text = "\n\n".join(f"• {message}" for message in geometry_warnings_a)
-            st.warning(
-                "入力寸法を確認してください。\n\n"
-                + warning_text
-                + "\n\n警告中も計算は継続します。寸法を確認するまでは、計算結果を参考値として扱ってください。"
-            )
+            if geometry_warnings_a:
+                warning_text = "\n\n".join(f"• {message}" for message in geometry_warnings_a)
+                st.warning(
+                    "入力寸法を確認してください。\n\n"
+                    + warning_text
+                    + "\n\n警告中も計算は継続します。寸法を確認するまでは、計算結果を参考値として扱ってください。"
+                )
 
         st.write("---") 
 
