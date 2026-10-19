@@ -767,7 +767,7 @@ def draw_catchment_layout(v_req, a_in_internal, a_dir_internal, a_in_external, a
     fmt = ',.4f' if area_unit == 'ha' else ',.2f'
     display_pond_area = pond_area_m2 if pond_area_m2 is not None else 0.0
     pond_fmt = ',.2f'
-    pond_unit = 'm²'
+    pond_unit = 'm2'
 
     ax.text(5.0, 0.6, '河川・水路', color='#0369a1', fontsize=10, fontweight='bold', ha='center', va='center', zorder=5)
     
