@@ -55,6 +55,22 @@ def render_judgment_status(status):
     st.markdown(html, unsafe_allow_html=True)
 
 
+def render_dimension_warning():
+    """Show the dimension warning using the same band geometry as judgment statuses."""
+    # Keep the warning's distinct blue color and ⚠️ emoji, while matching the
+    # judgment bands' padding, icon box, text size, line-height, and vertical centering.
+    html = (
+        '<div style="display:flex; align-items:center; box-sizing:border-box; width:100%; '
+        'padding:23px 18px; gap:14px; border-radius:8px; '
+        'background:#e8f3fc; color:#175a8a; margin:0 0 12px 0;">'
+        '<span aria-hidden="true" style="display:flex; align-items:center; justify-content:center; '
+        'flex:0 0 38px; width:38px; height:38px; font-size:32px; line-height:1;">⚠️</span>'
+        '<div style="font-family:inherit; font-size:37px; font-weight:700; '
+        'line-height:1.25; margin:0; padding:0;">寸法を確認してください</div></div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
 def render_figure_inline(fig, width_px, y_offset_px=0, tight_crop=False):
     """Render a Matplotlib figure as inline SVG, avoiding Streamlit's media URL.
 
@@ -1262,7 +1278,7 @@ with tabA:
             # 寸法に不整合がある場合は、流下能力の判定より先に確認を促す。
             # 計算値は参考表示として残すが、「流れます」と誤認させない。
             if geometry_warnings_a:
-                st.info("## ⚠️ 寸法を確認してください")
+                render_dimension_warning()
             elif margin_ratio >= 120.0:
                 render_judgment_status("flow")
             elif 100.0 <= margin_ratio < 120.0:
