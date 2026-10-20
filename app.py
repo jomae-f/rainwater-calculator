@@ -504,7 +504,7 @@ def calculate_detention_basin(
     total_dev_area = a_in_int_ha + a_dir_int_ha  # 総開発面積（区域内流入 ＋ 区域内直接）
 
     # 2. 開発前許容量 (Q_pre) と 開発後直接流出量 (Q_dir) の算出
-    a_all_ha = a_in_int_ha + a_dir_int_ha
+    a_all_ha = a_in_int_ha + a_dir_int_ha + a_in_ext_ha
     q_pre = (1.0 / 360.0) * f_pre * i_safe * a_all_ha
     q_dir = (1.0 / 360.0) * f_post * i_50 * a_dir_int_ha
     
@@ -512,8 +512,8 @@ def calculate_detention_basin(
     q_allow = max(0.0, q_pre - q_dir)
 
     # 4. 許容放流量に対応した逆算降雨強度 (rc)
-    if a1 > 0 and f_pre > 0:
-        rc = (360.0 * q_allow) / (a1 * f_pre)
+    if (a1 + a2) > 0 and f_pre > 0:
+        rc = (360.0 * q_allow) / ((a1 + a2) * f_pre)
     else:
         rc = 0.0
 
@@ -1429,7 +1429,7 @@ with tabA:
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             if st.button("📥 現在の流入雨水量を記憶する"):
-                st.session_state["upstream_Q"] = st.session_state.get("upstream_Q", 0.0) + Q_in_a
+                st.session_state["upstream_Q"] = Q_in_a
                 st.rerun()
                 
         with col_btn2:
